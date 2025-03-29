@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"my_web/backend/internal/logger"
 	"strconv"
-	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -15,142 +17,217 @@ var (
 	ErrCacheMiss = errors.New("cache miss")
 )
 
-type Cache struct {
-	baseTimeout time.Duration
-	userTimeout time.Duration
-	RDB         *redis.Client
-}
-
-func NewArticleCache(rdb *redis.Client) *Cache {
-	return &Cache{
-		baseTimeout: 60 * time.Minute,
-		userTimeout: 720 * time.Minute,
-		RDB:         rdb,
-	}
-}
-
-func (c *Cache) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func cacheGetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	// 获取文章列表
 	key := ArticleByPageKey(page, pageSize)
-	data, err := c.RDB.Get(ctx, key).Result()
+	data, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return nil, 0, ErrCacheMiss
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("缓存获取异常 %w", err)
+		logger.Error(
+			"cache get articles by page failed",
+			zap.String("key", key),
+			zap.Error(err),
+		)
+		return nil, 0, fmt.Errorf("cache get articles by page failed: %w", err)
 	}
 
 	var articles []ArticleWithoutContent
 	if err = json.Unmarshal([]byte(data), &articles); err != nil {
-		return nil, 0, fmt.Errorf("反序列化失败 %w", err)
+		logger.Error(
+			"unmarshal articles by page failed",
+			zap.String("key", key),
+			zap.String("data", data),
+			zap.Error(err),
+		)
+		return nil, 0, fmt.Errorf("unmarshal articles by page failed: %w", err)
 	}
 
 	// 获取总数
-	totalData, err := c.RDB.Get(ctx, ArticleTotalKey()).Result()
+	totalKey := ArticleTotalKey()
+	totalData, err := rdb.Get(ctx, totalKey).Result()
 	if err == redis.Nil {
 		return articles, 0, ErrCacheMiss // 列表有但总数未命中
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("获取总数失败 %w", err)
+		logger.Error(
+			"cache get article total failed",
+			zap.String("key", totalKey),
+			zap.Error(err),
+		)
+		return nil, 0, fmt.Errorf("cache get article total failed: %w", err)
 	}
 
 	total, err := strconv.Atoi(totalData)
 	if err != nil {
-		return nil, 0, fmt.Errorf("总数解析失败 %w", err)
+		logger.Error(
+			"parse article total failed",
+			zap.String("key", totalKey),
+			zap.String("data", totalData),
+			zap.Error(err),
+		)
+		return nil, 0, fmt.Errorf("parse article total failed: %w", err)
 	}
 
 	return articles, total, nil
 }
 
-func (c *Cache) SetArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleWithoutContent, total int) error {
+func cacheSetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSize int, articles []ArticleWithoutContent, total int) error {
 	// 序列化文章列表
 	data, err := json.Marshal(articles)
 	if err != nil {
-		return fmt.Errorf("序列化失败 %w", err)
+		logger.Error(
+			"marshal articles by page failed",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+			zap.Error(err),
+		)
+		return fmt.Errorf("marshal articles by page failed: %w", err)
 	}
 
 	// 使用 Pipeline 批量设置
-	pipe := c.RDB.Pipeline()
-	pipe.Set(ctx, ArticleByPageKey(page, pageSize), data, c.baseTimeout)
-	pipe.Set(ctx, ArticleTotalKey(), strconv.Itoa(total), c.baseTimeout)
+	pipe := rdb.Pipeline()
+	pipe.Set(ctx, ArticleByPageKey(page, pageSize), data, GetArticleConfig().cacheBaseTTL)
+	pipe.Set(ctx, ArticleTotalKey(), strconv.Itoa(total), GetArticleConfig().cacheBaseTTL)
 
 	_, err = pipe.Exec(ctx)
-	return err
+	if err != nil {
+		logger.Error(
+			"set articles by page cache failed",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+			zap.Error(err),
+		)
+		return fmt.Errorf("set articles by page cache failed: %w", err)
+	}
+
+	return nil
 }
 
-func (c *Cache) GetArticleByID(ctx context.Context, id int) (*Article, error) {
+func cacheGetArticleByID(ctx context.Context, rdb *redis.Client, id int) (*Article, error) {
 	key := ArticleByIDKey(id)
-	data, err := c.RDB.Get(ctx, key).Result()
+	data, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
+		logger.Info(
+			"cache miss",
+			zap.String("key", key),
+		)
 		return nil, ErrCacheMiss
 	}
 	if err != nil {
-		return nil, fmt.Errorf("缓存获取异常 %w", err)
+		logger.Error(
+			"cache get article by id failed",
+			zap.String("key", key),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("cache get article by id failed: %w", err)
 	}
 
 	var article Article
 	if err := json.Unmarshal([]byte(data), &article); err != nil {
-		return nil, fmt.Errorf("反序列化失败 %w", err)
+		logger.Warn(
+			"unmarshal failed",
+			zap.String("key", key),
+			zap.String("data", data),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("unmarshal article by id failed: %w", err)
 	}
 
 	return &article, nil
 }
 
-func (c *Cache) SetArticleByID(ctx context.Context, id int, article *Article) error {
+func cacheSetArticleByID(ctx context.Context, rdb *redis.Client, id int, article *Article) error {
 	data, err := json.Marshal(article)
 	if err != nil {
-		return fmt.Errorf("序列化失败 %w", err)
+		logger.Error(
+			"marshal article by id failed",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
+		return fmt.Errorf("marshal article by id failed: %w", err)
 	}
 
-	err = c.RDB.Set(ctx, ArticleByIDKey(id), data, c.baseTimeout).Err()
+	err = rdb.Set(ctx, ArticleByIDKey(id), data, GetArticleConfig().cacheBaseTTL).Err()
 	if err != nil {
-		return err
+		logger.Error(
+			"set article by id cache failed",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
+		return fmt.Errorf("set article by id cache failed: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Cache) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
+func cacheGetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int) ([]ArticleWithoutContent, error) {
 	key := ArticleByPopularKey(limit)
 
-	data, err := c.RDB.Get(ctx, key).Result()
+	data, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
+		logger.Info(
+			"cache miss",
+			zap.String("key", key),
+		)
 		return nil, ErrCacheMiss
 	}
 	if err != nil {
-		return nil, fmt.Errorf("缓存获取异常 %w", err)
+		logger.Error(
+			"cache get articles by popular failed",
+			zap.String("key", key),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("cache get articles by popular failed: %w", err)
 	}
 
 	var articles []ArticleWithoutContent
 	if err := json.Unmarshal([]byte(data), &articles); err != nil {
-		return nil, fmt.Errorf("反序列化失败 %w", err)
+		logger.Error(
+			"unmarshal articles by popular failed",
+			zap.String("key", key),
+			zap.String("data", data),
+			zap.Error(err),
+		)
+		return nil, fmt.Errorf("unmarshal articles by popular failed: %w", err)
 	}
 
 	return articles, nil
 }
 
-func (c *Cache) SetArticlesByPopular(ctx context.Context, limit int, articles []ArticleWithoutContent) error {
+func cacheSetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int, articles []ArticleWithoutContent) error {
 	data, err := json.Marshal(articles)
 	if err != nil {
-		return fmt.Errorf("序列化失败 %w", err)
+		logger.Error(
+			"marshal articles by popular failed",
+			zap.Int("limit", limit),
+			zap.Error(err),
+		)
+		return fmt.Errorf("marshal articles by popular failed: %w", err)
 	}
 
-	err = c.RDB.Set(ctx, ArticleByPopularKey(limit), data, c.baseTimeout).Err()
+	err = rdb.Set(ctx, ArticleByPopularKey(limit), data, GetArticleConfig().cacheBaseTTL).Err()
 	if err != nil {
-		return err
+		logger.Error(
+			"set articles by popular cache failed",
+			zap.Int("limit", limit),
+			zap.Error(err),
+		)
+		return fmt.Errorf("set articles by popular cache failed: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Cache) AddViewUV(ctx context.Context, id int, userID string) error {
-	return c.RDB.PFAdd(ctx, ArticleViewKey(id), userID).Err()
+func cacheAddViewUV(ctx context.Context, rdb *redis.Client, id int, userID string) error {
+	return rdb.PFAdd(ctx, ArticleViewKey(id), userID).Err()
 }
 
-func (c *Cache) GetViewUV(ctx context.Context, id int) (int64, error) {
-	return c.RDB.PFCount(ctx, ArticleViewKey(id)).Result()
+func cacheGetViewUV(ctx context.Context, rdb *redis.Client, id int) (int64, error) {
+	return rdb.PFCount(ctx, ArticleViewKey(id)).Result()
 }
 
-func (c *Cache) DelViewUV(ctx context.Context, id int) error {
-	return c.RDB.Del(ctx, ArticleViewKey(id)).Err()
+func cacheDelViewUV(ctx context.Context, rdb *redis.Client, id int) error {
+	return rdb.Del(ctx, ArticleViewKey(id)).Err()
 }

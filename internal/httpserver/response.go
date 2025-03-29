@@ -13,8 +13,8 @@ func (h *BaseHandler) Success(c *gin.Context, data any) {
 	ReturnSuccess(c, data)
 }
 
-func (h *BaseHandler) Fail(c *gin.Context, r Result, data any) {
-	ReturnResponse(c, r, data)
+func (h *BaseHandler) Fail(c *gin.Context, r Result) {
+	ReturnFail(c, r)
 }
 
 func (h *BaseHandler) Response(c *gin.Context, r Result, data any) {
@@ -48,4 +48,8 @@ func ReturnResponse(c *gin.Context, r Result, data any) {
 
 func ReturnSuccess(c *gin.Context, data any) {
 	ReturnResponse(c, SuccessResult, data)
+}
+
+func ReturnFail(c *gin.Context, r Result) {
+	ReturnResponse(c, r, "")
 }

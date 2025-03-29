@@ -2,24 +2,26 @@ package article
 
 import (
 	"context"
+	"my_web/backend/internal/logger"
 	"my_web/backend/internal/utils"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	DB  *Database
-	RDB *Cache
+	DB  *gorm.DB
+	RDB *redis.Client
 
 	task utils.TaskRunner
 }
 
 func NewArticleService(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Service {
 	service := &Service{
-		DB:  NewDatabase(db),
-		RDB: NewArticleCache(rdb),
+		DB:  db,
+		RDB: rdb,
 	}
 
 	service.task = *utils.NewTaskRunner(
@@ -34,88 +36,158 @@ func NewArticleService(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Ser
 }
 
 func (s *Service) Run(ctx context.Context) {
-	ids, err := s.DB.GetAllArticleIDs()
+	ids, err := repoGetAllArticleIDs(s.DB)
 	if err != nil {
+		logger.Error(
+			"load article ids for view sync failed",
+			zap.Error(err),
+		)
 		return
 	}
 
 	for _, id := range ids {
-		num, err := s.RDB.GetViewUV(ctx, id)
-		if err != nil || num == 0 {
-			continue
-		}
-
-		err = s.RDB.DelViewUV(ctx, id)
+		num, err := cacheGetViewUV(ctx, s.RDB, id)
 		if err != nil {
+			logger.Error(
+				"get view uv from cache failed",
+				zap.Int("id", id),
+				zap.Error(err),
+			)
+			continue
+		}
+		if num == 0 {
 			continue
 		}
 
-		_ = s.DB.IncrementViews(id, num)
+		err = cacheDelViewUV(ctx, s.RDB, id)
+		if err != nil {
+			logger.Error(
+				"delete view uv from cache failed",
+				zap.Int("id", id),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		if err := repoIncrementViews(s.DB, id, num); err != nil {
+			logger.Error(
+				"increment article views failed",
+				zap.Int("id", id),
+				zap.Int64("increment", num),
+				zap.Error(err),
+			)
+		}
 	}
 }
 
-// 分页查找
 func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
-	articles, total, err := s.RDB.GetArticlesByPage(ctx, page, pageSize)
+	articles, total, err := cacheGetArticlesByPage(ctx, s.RDB, page, pageSize)
 	if err == nil {
+		logger.Info(
+			"get articles by page from cache",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+		)
 		return articles, total, nil
 	}
 
 	if err == ErrCacheMiss {
-		articles, total, err = s.DB.GetArticlesByPage(page, pageSize)
+		logger.Info(
+			"cache miss for articles by page",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+		)
+
+		articles, total, err = repoGetArticlesByPage(s.DB, page, pageSize)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		s.RDB.SetArticlesByPage(ctx, page, pageSize, articles, total)
+		cacheSetArticlesByPage(ctx, s.RDB, page, pageSize, articles, total)
 		return articles, total, nil
 	}
 
-	return s.DB.GetArticlesByPage(page, pageSize)
+	logger.Error(
+		"get articles by page from cache failed",
+		zap.Int("page", page),
+		zap.Int("page_size", pageSize),
+		zap.Error(err),
+	)
+
+	return repoGetArticlesByPage(s.DB, page, pageSize)
 }
 
-// 获取热门文章，目前只基于view数，后续增加其他项综合判断
 func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
-	articles, err := s.RDB.GetArticlesByPopular(ctx, limit)
+	articles, err := cacheGetArticlesByPopular(ctx, s.RDB, limit)
 	if err == nil {
+		logger.Info(
+			"get articles by popular from cache",
+			zap.Int("limit", limit),
+		)
 		return articles, nil
 	}
 
 	if err == ErrCacheMiss {
-		articles, err = s.DB.GetArticlesByPopular(limit)
+		logger.Info(
+			"cache miss for articles by popular",
+			zap.Int("limit", limit),
+		)
+
+		articles, err = repoGetArticlesByPopular(s.DB, limit)
 		if err != nil {
 			return nil, err
 		}
 
-		go s.RDB.SetArticlesByPopular(ctx, limit, articles)
+		go cacheSetArticlesByPopular(ctx, s.RDB, limit, articles)
 		return articles, nil
 	}
 
-	return s.DB.GetArticlesByPopular(limit)
+	logger.Error(
+		"get articles by popular from cache failed",
+		zap.Int("limit", limit),
+		zap.Error(err),
+	)
+
+	return repoGetArticlesByPopular(s.DB, limit)
 }
 
-// 通过ID获取文章，获取后增加views
-// userID: 用户标识，可以是用户ID或IP地址，用于防重复计数
 func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
-	// cache hit
-	article, err := s.RDB.GetArticleByID(ctx, id)
+	article, err := cacheGetArticleByID(ctx, s.RDB, id)
 	if err == nil {
-		s.RDB.AddViewUV(ctx, id, userID)
-		return article, nil
-	} else {
-		article, err = s.DB.GetArticleByID(id)
-		if err != nil {
-			return nil, err
-		}
-
-		// sync write-back to the DB and increasing views
-		s.RDB.AddViewUV(ctx, id, userID)
-		s.RDB.SetArticleByID(ctx, id, article)
+		logger.Info(
+			"get article by id from cache",
+			zap.Int("id", id),
+			zap.String("user_id", userID),
+		)
+		cacheAddViewUV(ctx, s.RDB, id, userID)
 		return article, nil
 	}
+
+	if err != ErrCacheMiss {
+		logger.Error(
+			"get article by id from cache failed",
+			zap.Int("id", id),
+			zap.String("user_id", userID),
+			zap.Error(err),
+		)
+	} else {
+		logger.Info(
+			"cache miss for article by id",
+			zap.Int("id", id),
+			zap.String("user_id", userID),
+		)
+	}
+
+	article, err = repoGetArticleByID(s.DB, id)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheAddViewUV(ctx, s.RDB, id, userID)
+	cacheSetArticleByID(ctx, s.RDB, id, article)
+	return article, nil
 }
 
-// Todo 按tags找文章
 func (s *Service) GetArticlesByTag(limit int) ([]Article, error) {
 	return nil, nil
 }
