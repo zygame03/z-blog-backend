@@ -1,22 +1,25 @@
 package article
 
 import (
+	"context"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/logger"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
 	httpserver.BaseHandler
-	service *Service
+	service *service
 }
 
-func NewHandler(s *Service) *Handler {
+func NewHandler(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Handler {
 	return &Handler{
-		service: s,
+		service: newArticleService(ctx, db, rdb),
 	}
 }
 
@@ -37,7 +40,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 
@@ -47,7 +50,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 
@@ -59,7 +62,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			zap.Int("pagesize", pageSize),
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
@@ -78,7 +81,7 @@ func (h *Handler) getHotArticles(ctx *gin.Context) {
 			"get article failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
@@ -93,7 +96,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 			"request invalid id",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 
@@ -110,7 +113,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 			zap.Int("id", id),
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
