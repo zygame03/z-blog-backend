@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config 应用配置结构
-type Config struct {
+// StaticConfig 应用配置结构
+type StaticConfig struct {
 	Httpserver HttpserverConfig `mapstructure:"httpserver"`
 	Database   DatabaseConfig   `mapstructure:"database"`
 	Redis      RedisConfig      `mapstructure:"redis"`
@@ -47,7 +47,7 @@ type RedisConfig struct {
 }
 
 // ReadConfig 读取配置文件
-func ReadConfig(fpath, fname, ftype string) (*Config, error) {
+func ReadConfig(fpath, fname, ftype string) (*StaticConfig, error) {
 	viper.Reset()
 
 	viper.AddConfigPath(fpath)
@@ -58,7 +58,7 @@ func ReadConfig(fpath, fname, ftype string) (*Config, error) {
 		return nil, err
 	}
 
-	var cfg Config
+	var cfg StaticConfig
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Println("解析配置文件失败", err)
 		return nil, err

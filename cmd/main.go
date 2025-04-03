@@ -21,19 +21,19 @@ import (
 func main() {
 	logger.InitLogger()
 	// 读取配置
-	config, err := config.ReadConfig("config/", "config", "json")
+	cfg, err := config.ReadConfig("config/", "config", "json")
 	if err != nil {
 		log.Fatalf("读取配置失败: %v", err)
 	}
 
 	// 初始化应用依赖
-	db, err := infra.InitDatabase(&config.Database)
+	db, err := infra.InitDatabase(&cfg.Database)
 
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
 
-	rdb, err := infra.InitRedis(&config.Redis)
+	rdb, err := infra.InitRedis(&cfg.Redis)
 	if err != nil {
 		log.Fatalf("初始化Redis失败: %v", err)
 	}
@@ -45,7 +45,7 @@ func main() {
 
 	// 在 goroutine 中启动服务
 	srv := httpserver.NewHttpserver(
-		&config.Httpserver,
+		&cfg.Httpserver,
 		articleHandler,
 		sitedataHandler,
 		userHandler,

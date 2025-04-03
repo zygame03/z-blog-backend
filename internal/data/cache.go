@@ -35,7 +35,7 @@ func cacheGetIntro(ctx context.Context, rdb *redis.Client) (string, error) {
 func cacheSetIntro(ctx context.Context, rdb *redis.Client, intro string) error {
 	key := getIntroKey()
 
-	err := rdb.Set(ctx, key, intro, GetSitedataConfig().cacheBaseTTL).Err()
+	err := rdb.Set(ctx, key, intro, getConfig().cacheBaseTTL).Err()
 	if err != nil {
 		logger.Error(
 			"set intro failed",
