@@ -28,7 +28,11 @@ func repoGetAllArticleIDs(db *gorm.DB) ([]int, error) {
 }
 
 // repoGetArticlesByPage
-func repoGetArticlesByPage(db *gorm.DB, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func repoGetArticlesByPage(
+	db *gorm.DB,
+	page, pageSize int,
+) ([]ArticleWithoutContent, int, error) {
+
 	var articles []ArticleWithoutContent
 	var total int64
 

@@ -1,35 +1,55 @@
 package article
 
 import (
+	"context"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/middleware"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
 	httpserver.BaseHandler
-	service *Service
+	service *service
 }
 
-func NewHandler(s *Service) *Handler {
+func NewHandler(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Handler {
 	return &Handler{
-		service: s,
+		service: newArticleService(ctx, db, rdb),
 	}
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	r := e.Group("/api/article")
 	{
+		r.POST("/config", middleware.JWTAuth(), h.changeConfig)
+
 		r.GET("", h.getArticles)
 		r.GET("/hotArticles", h.getHotArticles)
 		r.GET("/:id", h.getArticleDetail)
 	}
 }
 
-// get all articles
+func (h *Handler) changeConfig(ctx *gin.Context) {
+	var cfg ArticleConfig
+	if ctx.ShouldBindBodyWithJSON(&cfg) != nil {
+		h.Fail(ctx, httpserver.ErrRequest)
+		return
+	}
+
+	setConfig(cfg)
+	logger.Info(
+		"change config successfully",
+		zap.String("model", "article"),
+	)
+}
+
+// 获取文章列表
 func (h *Handler) getArticles(ctx *gin.Context) {
 	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	if err != nil {
@@ -37,7 +57,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 
@@ -47,7 +67,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 
@@ -94,7 +114,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 			"request invalid id",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, httpserver.ErrRequest)
 		return
 	}
 

@@ -17,7 +17,11 @@ var (
 	ErrCacheMiss = errors.New("cache miss")
 )
 
-func cacheGetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func cacheGetArticlesByPage(
+	ctx context.Context,
+	rdb *redis.Client,
+	page, pageSize int,
+) ([]ArticleWithoutContent, int, error) {
 	// 获取文章列表
 	key := ArticleByPageKey(page, pageSize)
 	data, err := rdb.Get(ctx, key).Result()
@@ -73,7 +77,13 @@ func cacheGetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSi
 	return articles, total, nil
 }
 
-func cacheSetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSize int, articles []ArticleWithoutContent, total int) error {
+func cacheSetArticlesByPage(
+	ctx context.Context,
+	rdb *redis.Client,
+	page, pageSize int,
+	articles []ArticleWithoutContent,
+	total int,
+) error {
 	// 序列化文章列表
 	data, err := json.Marshal(articles)
 	if err != nil {
@@ -88,8 +98,18 @@ func cacheSetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSi
 
 	// 使用 Pipeline 批量设置
 	pipe := rdb.Pipeline()
-	pipe.Set(ctx, ArticleByPageKey(page, pageSize), data, GetArticleConfig().cacheBaseTTL)
-	pipe.Set(ctx, ArticleTotalKey(), strconv.Itoa(total), GetArticleConfig().cacheBaseTTL)
+	pipe.Set(
+		ctx,
+		ArticleByPageKey(page, pageSize),
+		data,
+		getConfig().cacheBaseTTL,
+	)
+	pipe.Set(
+		ctx,
+		ArticleTotalKey(),
+		strconv.Itoa(total),
+		getConfig().cacheBaseTTL,
+	)
 
 	_, err = pipe.Exec(ctx)
 	if err != nil {
@@ -105,7 +125,11 @@ func cacheSetArticlesByPage(ctx context.Context, rdb *redis.Client, page, pageSi
 	return nil
 }
 
-func cacheGetArticleByID(ctx context.Context, rdb *redis.Client, id int) (*Article, error) {
+func cacheGetArticleByID(
+	ctx context.Context,
+	rdb *redis.Client,
+	id int,
+) (*Article, error) {
 	key := ArticleByIDKey(id)
 	data, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -138,7 +162,12 @@ func cacheGetArticleByID(ctx context.Context, rdb *redis.Client, id int) (*Artic
 	return &article, nil
 }
 
-func cacheSetArticleByID(ctx context.Context, rdb *redis.Client, id int, article *Article) error {
+func cacheSetArticleByID(
+	ctx context.Context,
+	rdb *redis.Client,
+	id int,
+	article *Article,
+) error {
 	data, err := json.Marshal(article)
 	if err != nil {
 		logger.Error(
@@ -149,7 +178,12 @@ func cacheSetArticleByID(ctx context.Context, rdb *redis.Client, id int, article
 		return fmt.Errorf("marshal article by id failed: %w", err)
 	}
 
-	err = rdb.Set(ctx, ArticleByIDKey(id), data, GetArticleConfig().cacheBaseTTL).Err()
+	err = rdb.Set(
+		ctx,
+		ArticleByIDKey(id),
+		data,
+		getConfig().cacheBaseTTL,
+	).Err()
 	if err != nil {
 		logger.Error(
 			"set article by id cache failed",
@@ -162,7 +196,11 @@ func cacheSetArticleByID(ctx context.Context, rdb *redis.Client, id int, article
 	return nil
 }
 
-func cacheGetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int) ([]ArticleWithoutContent, error) {
+func cacheGetArticlesByPopular(
+	ctx context.Context,
+	rdb *redis.Client,
+	limit int,
+) ([]ArticleWithoutContent, error) {
 	key := ArticleByPopularKey(limit)
 
 	data, err := rdb.Get(ctx, key).Result()
@@ -196,7 +234,12 @@ func cacheGetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int
 	return articles, nil
 }
 
-func cacheSetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int, articles []ArticleWithoutContent) error {
+func cacheSetArticlesByPopular(
+	ctx context.Context,
+	rdb *redis.Client,
+	limit int,
+	articles []ArticleWithoutContent,
+) error {
 	data, err := json.Marshal(articles)
 	if err != nil {
 		logger.Error(
@@ -207,7 +250,12 @@ func cacheSetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int
 		return fmt.Errorf("marshal articles by popular failed: %w", err)
 	}
 
-	err = rdb.Set(ctx, ArticleByPopularKey(limit), data, GetArticleConfig().cacheBaseTTL).Err()
+	err = rdb.Set(
+		ctx,
+		ArticleByPopularKey(limit),
+		data,
+		getConfig().cacheBaseTTL,
+	).Err()
 	if err != nil {
 		logger.Error(
 			"set articles by popular cache failed",
@@ -220,14 +268,27 @@ func cacheSetArticlesByPopular(ctx context.Context, rdb *redis.Client, limit int
 	return nil
 }
 
-func cacheAddViewUV(ctx context.Context, rdb *redis.Client, id int, userID string) error {
+func cacheAddViewUV(
+	ctx context.Context,
+	rdb *redis.Client,
+	id int,
+	userID string,
+) error {
 	return rdb.PFAdd(ctx, ArticleViewKey(id), userID).Err()
 }
 
-func cacheGetViewUV(ctx context.Context, rdb *redis.Client, id int) (int64, error) {
+func cacheGetViewUV(
+	ctx context.Context,
+	rdb *redis.Client,
+	id int,
+) (int64, error) {
 	return rdb.PFCount(ctx, ArticleViewKey(id)).Result()
 }
 
-func cacheDelViewUV(ctx context.Context, rdb *redis.Client, id int) error {
+func cacheDelViewUV(
+	ctx context.Context,
+	rdb *redis.Client,
+	id int,
+) error {
 	return rdb.Del(ctx, ArticleViewKey(id)).Err()
 }
