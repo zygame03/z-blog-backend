@@ -1,4 +1,4 @@
-package config
+package response
 
 type FieldType int
 

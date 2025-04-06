@@ -1,13 +1,14 @@
-package dyconfig
+package admin
 
 import (
-	"my_web/backend/internal/httpserver"
+	"my_web/backend/internal/middleware"
+	"my_web/backend/internal/response"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	httpserver.BaseHandler
+	response.BaseHandler
 }
 
 func NewHandler() *Handler {
@@ -15,9 +16,11 @@ func NewHandler() *Handler {
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
-	r := e.Group("/api/dyconfig")
-	r.GET("/remote/config/all", h.RemoteSendConfigAll)
-	r.GET("/remote/config/:name", h.RemoteSendConfigWithModule)
+	r := e.Group("/api/admin", middleware.JWTAuth())
+	r.GET("/config/remote/all", h.RemoteSendConfigAll)
+	r.GET("/config/remote/module/:name", h.RemoteSendConfigWithModule)
+	r.POST("/config/remote/all", h.RemoteLoadConfigAll)
+	r.POST("/config/remote/module/:name", h.RemoteLoadConfigWithModule)
 }
 
 func (h *Handler) RemoteSendConfigWithModule(ctx *gin.Context) {
