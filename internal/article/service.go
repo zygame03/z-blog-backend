@@ -11,8 +11,10 @@ import (
 )
 
 type service struct {
-	DB  *gorm.DB
-	RDB *redis.Client
+	db  *gorm.DB
+	rdb *cache
+
+	getCfg func() *ArticleConfig
 
 	task utils.TaskRunner
 }
@@ -21,16 +23,19 @@ func newArticleService(
 	ctx context.Context,
 	db *gorm.DB,
 	rdb *redis.Client,
+	getCfg func() *ArticleConfig,
 ) *service {
 	service := &service{
-		DB:  db,
-		RDB: rdb,
+		getCfg: getCfg,
 	}
+
+	service.db = db
+	service.rdb = NewCache(rdb, service.getConfig)
 
 	service.task = *utils.NewTaskRunner(
 		service,
-		utils.WithInterval(getConfig().syncInterval),
-		utils.WithTimeout(getConfig().syncInterval),
+		utils.WithInterval(service.getCfg().syncInterval),
+		utils.WithTimeout(service.getConfig().cacheBaseTTL),
 	)
 
 	service.task.Start(ctx)
@@ -38,8 +43,12 @@ func newArticleService(
 	return service
 }
 
+func (s *service) getConfig() *ArticleConfig {
+	return s.getCfg()
+}
+
 func (s *service) Run(ctx context.Context) {
-	ids, err := repoGetAllArticleIDs(s.DB)
+	ids, err := repoGetAllArticleIDs(s.db)
 	if err != nil {
 		logger.Error(
 			"load article ids for view sync failed",
@@ -49,7 +58,7 @@ func (s *service) Run(ctx context.Context) {
 	}
 
 	for _, id := range ids {
-		num, err := cacheGetViewUV(ctx, s.RDB, id)
+		num, err := s.rdb.GetViewUV(ctx, id)
 		if err != nil {
 			logger.Error(
 				"get view uv from cache failed",
@@ -62,7 +71,7 @@ func (s *service) Run(ctx context.Context) {
 			continue
 		}
 
-		err = cacheDelViewUV(ctx, s.RDB, id)
+		err = s.rdb.DelViewUV(ctx, id)
 		if err != nil {
 			logger.Error(
 				"delete view uv from cache failed",
@@ -72,7 +81,7 @@ func (s *service) Run(ctx context.Context) {
 			continue
 		}
 
-		if err := repoIncrementViews(s.DB, id, num); err != nil {
+		if err := repoIncrementViews(s.db, id, num); err != nil {
 			logger.Error(
 				"increment article views failed",
 				zap.Int("id", id),
@@ -87,7 +96,7 @@ func (s *service) GetArticlesByPage(
 	ctx context.Context,
 	page, pageSize int,
 ) ([]ArticleWithoutContent, int, error) {
-	articles, total, err := cacheGetArticlesByPage(ctx, s.RDB, page, pageSize)
+	articles, total, err := s.rdb.GetArticlesByPage(ctx, page, pageSize)
 	if err == nil {
 		logger.Info(
 			"get articles by page from cache",
@@ -104,12 +113,12 @@ func (s *service) GetArticlesByPage(
 			zap.Int("page_size", pageSize),
 		)
 
-		articles, total, err = repoGetArticlesByPage(s.DB, page, pageSize)
+		articles, total, err = repoGetArticlesByPage(s.db, page, pageSize)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		cacheSetArticlesByPage(ctx, s.RDB, page, pageSize, articles, total)
+		s.rdb.SetArticlesByPage(ctx, page, pageSize, articles, total)
 		return articles, total, nil
 	}
 
@@ -120,14 +129,14 @@ func (s *service) GetArticlesByPage(
 		zap.Error(err),
 	)
 
-	return repoGetArticlesByPage(s.DB, page, pageSize)
+	return repoGetArticlesByPage(s.db, page, pageSize)
 }
 
 func (s *service) GetArticlesByPopular(
 	ctx context.Context,
 	limit int,
 ) ([]ArticleWithoutContent, error) {
-	articles, err := cacheGetArticlesByPopular(ctx, s.RDB, limit)
+	articles, err := s.rdb.GetArticlesByPopular(ctx, limit)
 	if err == nil {
 		logger.Info(
 			"get articles by popular from cache",
@@ -142,12 +151,12 @@ func (s *service) GetArticlesByPopular(
 			zap.Int("limit", limit),
 		)
 
-		articles, err = repoGetArticlesByPopular(s.DB, limit)
+		articles, err = repoGetArticlesByPopular(s.db, limit)
 		if err != nil {
 			return nil, err
 		}
 
-		go cacheSetArticlesByPopular(ctx, s.RDB, limit, articles)
+		go s.rdb.SetArticlesByPopular(ctx, limit, articles)
 		return articles, nil
 	}
 
@@ -157,7 +166,7 @@ func (s *service) GetArticlesByPopular(
 		zap.Error(err),
 	)
 
-	return repoGetArticlesByPopular(s.DB, limit)
+	return repoGetArticlesByPopular(s.db, limit)
 }
 
 func (s *service) GetArticleByID(
@@ -165,14 +174,14 @@ func (s *service) GetArticleByID(
 	id int,
 	userID string,
 ) (*Article, error) {
-	article, err := cacheGetArticleByID(ctx, s.RDB, id)
+	article, err := s.rdb.GetArticleByID(ctx, id)
 	if err == nil {
 		logger.Info(
 			"get article by id from cache",
 			zap.Int("id", id),
 			zap.String("user_id", userID),
 		)
-		cacheAddViewUV(ctx, s.RDB, id, userID)
+		s.rdb.AddViewUV(ctx, id, userID)
 		return article, nil
 	}
 
@@ -191,12 +200,12 @@ func (s *service) GetArticleByID(
 		)
 	}
 
-	article, err = repoGetArticleByID(s.DB, id)
+	article, err = repoGetArticleByID(s.db, id)
 	if err != nil {
 		return nil, err
 	}
-	cacheAddViewUV(ctx, s.RDB, id, userID)
-	cacheSetArticleByID(ctx, s.RDB, id, article)
+	s.rdb.AddViewUV(ctx, id, userID)
+	s.rdb.SetArticleByID(ctx, id, article)
 	return article, nil
 }
 
