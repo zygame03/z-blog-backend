@@ -1,7 +1,9 @@
 package user
 
+import "my_web/backend/internal/global"
+
 type Profile struct {
-	Id     int
+	global.BaseModel
 	Name   string
 	Desc   string
 	Locate string

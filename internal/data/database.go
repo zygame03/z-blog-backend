@@ -12,7 +12,7 @@ func repoGetIntro(db *gorm.DB) (string, error) {
 
 	result := db.
 		Model(Sitedata{}).
-		Where("id = ?", "intro").
+		Where("id = ?", intro).
 		First(&intro)
 	if result.Error != nil {
 		logger.Error(
