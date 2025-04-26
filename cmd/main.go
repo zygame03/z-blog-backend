@@ -5,10 +5,11 @@ import (
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
-	"my_web/backend/internal/data"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/middleware"
 	"my_web/backend/internal/user"
+	"my_web/backend/internal/websiteData"
 
 	"net/http"
 	"os"
@@ -19,10 +20,10 @@ import (
 
 func main() {
 	logger.InitLogger()
-	// 读取配置
+	// load config
 	cfg, err := config.LoadStConfig("./config/", "config")
 	if err != nil {
-		log.Fatalf("读取配置失败: %v", err)
+		log.Fatalf("load static config failed: %v", err)
 	}
 
 	err = config.LoadDyConfig("./config/", "dyconfig")
@@ -30,16 +31,17 @@ func main() {
 		log.Fatalf("load dynamic config failed: %v", err)
 	}
 
-	// 初始化应用依赖
-	db, err := infra.InitDatabase(&cfg.Database)
+	middleware.SetJWTKey(cfg.JwtKey)
 
+	// initialize
+	db, err := infra.InitDatabase(&cfg.Database)
 	if err != nil {
-		log.Fatalf("初始化数据库失败: %v", err)
+		log.Fatalf("database initialized failed: %v", err)
 	}
 
 	rdb, err := infra.InitCache(&cfg.Redis)
 	if err != nil {
-		log.Fatalf("初始化Redis失败: %v", err)
+		log.Fatalf("redis initialized failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -49,9 +51,17 @@ func main() {
 			return &config.GetConfig().Article
 		},
 	)
-	dataHandler := data.NewHandler(db, rdb)
-	userHandler := user.NewHandler(db, rdb)
-	// Start the httpserver in goroutine
+	dataHandler := websiteData.NewHandler(
+		db, rdb,
+		func() *websiteData.WebsiteDataConfig {
+			return &config.GetConfig().SiteData
+		},
+	)
+	userHandler := user.NewHandler(
+		db, rdb,
+	)
+
+	// start the httpserver in goroutine
 	srv := infra.NewHttpserver(
 		&cfg.Httpserver,
 		articleHandler,
@@ -65,7 +75,7 @@ func main() {
 		}
 	}()
 
-	// Graceful exit
+	// Graceful exits
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

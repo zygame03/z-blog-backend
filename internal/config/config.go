@@ -9,6 +9,7 @@ type StaticConfig struct {
 	Httpserver infra.HttpserverConfig `mapstructure:"httpserver"`
 	Database   infra.DatabaseConfig   `mapstructure:"database"`
 	Redis      infra.RedisConfig      `mapstructure:"redis"`
+	JwtKey     string                 `mapstructure:"jwt_key"`
 }
 
 // ReadConfig 读取配置文件

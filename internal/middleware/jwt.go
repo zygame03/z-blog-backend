@@ -10,6 +10,13 @@ import (
 
 var jwtKey = []byte("your_secret_key")
 
+func SetJWTKey(key string) {
+	if key == "" {
+		return
+	}
+	jwtKey = []byte(key)
+}
+
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")

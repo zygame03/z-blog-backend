@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"my_web/backend/internal/article"
-	"my_web/backend/internal/data"
 	"my_web/backend/internal/user"
+	"my_web/backend/internal/websiteData"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -37,7 +37,7 @@ func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
 	if err := db.AutoMigrate(
 		&article.Article{},
 		&user.Profile{},
-		&data.Sitedata{},
+		&websiteData.WebsiteData{},
 	); err != nil {
 		return nil, fmt.Errorf("数据库自动迁移失败: %w", err)
 	}

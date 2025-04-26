@@ -37,6 +37,7 @@ func cacheGetProfile(ctx context.Context, rdb *redis.Client, id int) (*Profile, 
 			"cache get profile failed",
 			zap.Int("id", id),
 		)
+		return nil, err
 	}
 
 	var data_s Profile
@@ -55,7 +56,7 @@ func cacheGetProfile(ctx context.Context, rdb *redis.Client, id int) (*Profile, 
 func cacheSetProfile(ctx context.Context, rdb *redis.Client, id int, data *Profile) error {
 	data_s, err := json.Marshal(data)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	key := getProfileKey(id)

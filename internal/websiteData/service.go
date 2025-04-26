@@ -1,0 +1,52 @@
+package websiteData
+
+import (
+	"context"
+	"my_web/backend/internal/logger"
+
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+)
+
+type service struct {
+	DB  *gorm.DB
+	rdb *cache
+
+	getCfg func() *WebsiteDataConfig
+}
+
+func newService(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *service {
+	s := service{
+		DB:     db,
+		getCfg: cfg,
+	}
+
+	s.rdb = NewCache(rdb, cfg)
+
+	return &s
+}
+
+func (s *service) getIntro(ctx context.Context) (string, error) {
+	data, err := s.rdb.GetIntro(ctx)
+	if err == nil {
+		logger.Info(
+			"get intro from cache",
+		)
+		return data, err
+	}
+
+	if err == ErrCacheMiss {
+		logger.Info(
+			"cache miss for intro",
+		)
+		data, err = repoGetIntro(s.DB)
+		if err != nil {
+			return data, err
+		}
+
+		s.rdb.SetIntro(ctx, data)
+		return data, err
+	}
+
+	return repoGetIntro(s.DB)
+}

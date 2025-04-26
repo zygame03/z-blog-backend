@@ -2,11 +2,13 @@ package config
 
 import (
 	"my_web/backend/internal/article"
+	"my_web/backend/internal/websiteData"
 	"sync/atomic"
 )
 
 type Dyconfig struct {
-	Article article.ArticleConfig `mapstructure:"article"`
+	Article  article.ArticleConfig         `mapstructure:"article"`
+	SiteData websiteData.WebsiteDataConfig `mapstructure:"site_data"`
 }
 
 var config atomic.Value
