@@ -2,6 +2,7 @@ package websiteData
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"my_web/backend/internal/logger"
 
@@ -51,6 +52,49 @@ func (c *cache) SetIntro(ctx context.Context, intro string) error {
 	if err != nil {
 		logger.Error(
 			"set intro failed",
+		)
+		return err
+	}
+
+	return nil
+}
+
+func (c *cache) getAnnouncement(ctx context.Context) ([]string, error) {
+	key := getAnnouncementKey()
+
+	data, err := c.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return nil, ErrCacheMiss
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var announcement []string
+	err = json.Unmarshal([]byte(data), &announcement)
+	if err != nil {
+		logger.Error(
+			"announcement unmarshal failed",
+		)
+		return nil, err
+	}
+
+	return announcement, nil
+}
+
+func (c *cache) setAnnouncement(ctx context.Context, data []string) error {
+	key := getAnnouncementKey()
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	err = c.rdb.Set(ctx, key, b, c.cfg().CacheBaseTTL).Err()
+	if err != nil {
+		logger.Error(
+			"set announcement failed",
 		)
 		return err
 	}

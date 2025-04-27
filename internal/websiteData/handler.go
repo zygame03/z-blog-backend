@@ -16,6 +16,7 @@ type Handler struct {
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	r := e.Group("/api")
 	r.GET("/data/intro", h.getIntro)
+	r.GET("/data/announcement", h.getAnnouncement)
 }
 
 func NewHandler(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *Handler {
@@ -26,6 +27,15 @@ func NewHandler(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *
 
 func (h *Handler) getIntro(ctx *gin.Context) {
 	data, err := h.service.getIntro(ctx)
+	if err != nil {
+		h.Fail(ctx, response.ErrDBOp)
+		return
+	}
+	h.Success(ctx, data)
+}
+
+func (h *Handler) getAnnouncement(ctx *gin.Context) {
+	data, err := h.service.getAnnouncement(ctx)
 	if err != nil {
 		h.Fail(ctx, response.ErrDBOp)
 		return
