@@ -8,6 +8,7 @@ import (
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/middleware"
+	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
 	"my_web/backend/internal/websiteData"
 
@@ -31,9 +32,9 @@ func main() {
 		log.Fatalf("load dynamic config failed: %v", err)
 	}
 
+	// initialize
 	middleware.SetJWTKey(cfg.JwtKey)
 
-	// initialize
 	db, err := infra.InitDatabase(&cfg.Database)
 	if err != nil {
 		log.Fatalf("database initialized failed: %v", err)
@@ -43,6 +44,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("redis initialized failed: %v", err)
 	}
+
+	cron := infra.NewCron()
 
 	ctx := context.Background()
 	articleHandler := article.NewHandler(
@@ -61,13 +64,23 @@ func main() {
 		db, rdb,
 	)
 
-	// start the httpserver in goroutine
-	srv := infra.NewHttpserver(
-		&cfg.Httpserver,
+	routers := []infra.Router{
 		articleHandler,
 		dataHandler,
 		userHandler,
+	}
+
+	statsService := stats.NewService(db, rdb, cron, ctx)
+
+	// reject
+	srv := infra.NewHttpserver(
+		&cfg.Httpserver,
+		routers,
+		middleware.ViewsCounter(statsService),
 	)
+
+	cron.Start()
+	defer cron.Stop()
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -75,7 +88,7 @@ func main() {
 		}
 	}()
 
-	// Graceful exits
+	// quit
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
