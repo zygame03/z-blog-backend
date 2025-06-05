@@ -1,9 +1,9 @@
 {
     "article": {
         "sync_interval": "10s",
-        "cache_base_ttl": "10s"
+        "cache_base_ttl": "60s"
     },
     "website_data": {
-        "cache_base_ttl": "10s"
+        "cache_base_ttl": "60s"
     }
 }

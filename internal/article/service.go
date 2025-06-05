@@ -3,52 +3,46 @@ package article
 import (
 	"context"
 	"my_web/backend/internal/logger"
-	"my_web/backend/internal/utils"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-type service struct {
-	db  *gorm.DB
+type Service struct {
+	db  *database
 	rdb *cache
 
 	getCfg func() *ArticleConfig
-
-	task utils.TaskRunner
 }
 
-func newArticleService(
-	ctx context.Context,
-	db *gorm.DB,
-	rdb *redis.Client,
-	getCfg func() *ArticleConfig,
-) *service {
-	service := &service{
+func NewService(db *gorm.DB, rdb *redis.Client, getCfg func() *ArticleConfig) *Service {
+	service := &Service{
 		getCfg: getCfg,
 	}
 
-	service.db = db
-	service.rdb = NewCache(rdb, service.getConfig)
-
-	service.task = *utils.NewTaskRunner(
-		service,
-		utils.WithInterval(service.getCfg().SyncInterval),
-		utils.WithTimeout(service.getConfig().CacheBaseTTL),
-	)
-
-	service.task.Start(ctx)
+	service.db = newDatabase(db)
+	service.rdb = newCache(rdb, service.getCfg)
 
 	return service
 }
 
-func (s *service) getConfig() *ArticleConfig {
-	return s.getCfg()
+func (s *Service) RegisterCron(cron *cron.Cron) {
+	_, err := cron.AddFunc("@every 24h", s.syncArticleViews)
+	if err != nil {
+		return
+	}
+	logger.Info(
+		"add func successfully",
+		zap.Int("interval", int(s.getCfg().SyncInterval)),
+		zap.String("func name", "syncArticleViews"),
+	)
 }
 
-func (s *service) Run(ctx context.Context) {
-	ids, err := repoGetAllArticleIDs(s.db)
+func (s *Service) syncArticleViews() {
+	ctx := context.Background()
+	ids, err := s.db.getAllArticleIDs()
 	if err != nil {
 		logger.Error(
 			"load article ids for view sync failed",
@@ -81,7 +75,7 @@ func (s *service) Run(ctx context.Context) {
 			continue
 		}
 
-		if err := repoIncrementViews(s.db, id, num); err != nil {
+		if err := s.db.incrementViews(id, num); err != nil {
 			logger.Error(
 				"increment article views failed",
 				zap.Int("id", id),
@@ -92,10 +86,7 @@ func (s *service) Run(ctx context.Context) {
 	}
 }
 
-func (s *service) GetArticlesByPage(
-	ctx context.Context,
-	page, pageSize int,
-) ([]ArticleWithoutContent, int, error) {
+func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	articles, total, err := s.rdb.GetArticlesByPage(ctx, page, pageSize)
 	if err == nil {
 		logger.Info(
@@ -113,7 +104,7 @@ func (s *service) GetArticlesByPage(
 			zap.Int("page_size", pageSize),
 		)
 
-		articles, total, err = repoGetArticlesByPage(s.db, page, pageSize)
+		articles, total, err = s.db.getArticlesByPage(page, pageSize)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -129,13 +120,10 @@ func (s *service) GetArticlesByPage(
 		zap.Error(err),
 	)
 
-	return repoGetArticlesByPage(s.db, page, pageSize)
+	return s.db.getArticlesByPage(page, pageSize)
 }
 
-func (s *service) GetArticlesByPopular(
-	ctx context.Context,
-	limit int,
-) ([]ArticleWithoutContent, error) {
+func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
 	articles, err := s.rdb.GetArticlesByPopular(ctx, limit)
 	if err == nil {
 		logger.Info(
@@ -151,7 +139,7 @@ func (s *service) GetArticlesByPopular(
 			zap.Int("limit", limit),
 		)
 
-		articles, err = repoGetArticlesByPopular(s.db, limit)
+		articles, err = s.db.getArticlesByPopular(limit)
 		if err != nil {
 			return nil, err
 		}
@@ -166,14 +154,10 @@ func (s *service) GetArticlesByPopular(
 		zap.Error(err),
 	)
 
-	return repoGetArticlesByPopular(s.db, limit)
+	return s.db.getArticlesByPopular(limit)
 }
 
-func (s *service) GetArticleByID(
-	ctx context.Context,
-	id int,
-	userID string,
-) (*Article, error) {
+func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
 	article, err := s.rdb.GetArticleByID(ctx, id)
 	if err == nil {
 		logger.Info(
@@ -200,7 +184,7 @@ func (s *service) GetArticleByID(
 		)
 	}
 
-	article, err = repoGetArticleByID(s.db, id)
+	article, err = s.db.getArticleByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +193,6 @@ func (s *service) GetArticleByID(
 	return article, nil
 }
 
-func (s *service) GetArticlesByTag(limit int) ([]Article, error) {
+func (s *Service) GetArticlesByTag(limit int) ([]Article, error) {
 	return nil, nil
 }
