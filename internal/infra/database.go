@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"my_web/backend/internal/article"
+	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
 	"my_web/backend/internal/websiteData"
 
@@ -38,9 +39,16 @@ func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
 		&article.Article{},
 		&user.Profile{},
 		&websiteData.WebsiteData{},
+		&stats.NumStats{},
 	); err != nil {
 		return nil, fmt.Errorf("数据库自动迁移失败: %w", err)
 	}
+
+	data := stats.NumStats{
+		Key:   "view",
+		Value: 0,
+	}
+	db.Model(&stats.NumStats{}).Create(&data)
 
 	log.Println("数据库初始化成功")
 	return db, nil
