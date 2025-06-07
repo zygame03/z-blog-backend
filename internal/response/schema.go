@@ -90,6 +90,18 @@ type ModuleSchema struct {
 
 var registry = map[string]*ModuleSchema{}
 
+func GetSchemaAll() []*ModuleSchema {
+	var schemaList []*ModuleSchema
+	for _, v := range registry {
+		schemaList = append(schemaList, v)
+	}
+	return schemaList
+}
+
+func GetSchemaByModule(module string) *ModuleSchema {
+	return registry[module]
+}
+
 func Register(schema *ModuleSchema) {
 	// 同名校验
 	if _, ok := registry[schema.Name]; ok {

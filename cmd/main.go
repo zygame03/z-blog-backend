@@ -5,6 +5,7 @@ import (
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
+	"my_web/backend/internal/home"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/middleware"
@@ -67,10 +68,13 @@ func main() {
 		db, rdb,
 	)
 
+	homeHandler := home.NewHandler()
+
 	routers := []infra.Router{
 		articleHandler,
 		dataHandler,
 		userHandler,
+		homeHandler,
 	}
 
 	statsService := stats.NewService(db, rdb, cron, ctx)

@@ -57,4 +57,6 @@ var (
 
 	ErrPassword  = RegisterResult(2001, "密码错误")
 	ErrUserExist = RegisterResult(2002, "用户不存在")
+
+	ErrConfigType = RegisterResult(5001, "配置类型异常")
 )

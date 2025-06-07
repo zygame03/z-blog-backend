@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/websiteData"
+	"reflect"
 	"sync/atomic"
 )
 
@@ -12,9 +14,46 @@ type Dyconfig struct {
 }
 
 var config atomic.Value
+var configMap = map[string]func() any{
+	"article":   func() any { return &article.ArticleConfig{} },
+	"site_data": func() any { return &websiteData.WebsiteDataConfig{} },
+}
+
+func SetConfig(conf any) {
+
+}
+
+func SetConfigWithModule(module string, conf any) error {
+	oldConf := GetConfig()
+	newConf := *oldConf
+	v := reflect.ValueOf(&newConf).Elem()
+
+	f := v.FieldByName(module)
+	if !f.IsValid() {
+		return fmt.Errorf("module not found")
+
+	}
+	if f.Type() != reflect.TypeOf(conf) {
+		return fmt.Errorf("type mismatch")
+	}
+	f.Set(reflect.ValueOf(conf))
+	config.Store(&newConf)
+	return nil
+}
 
 func GetConfig() *Dyconfig {
 	return config.Load().(*Dyconfig)
+}
+
+func GetArticleConfig() *article.ArticleConfig {
+	return &GetConfig().Article
+}
+
+func NewConfigByModule(module string) any {
+	if fn, ok := configMap[module]; ok {
+		return fn()
+	}
+	return nil
 }
 
 func LoadDyConfig(fpath, fname string) error {
@@ -25,8 +64,4 @@ func LoadDyConfig(fpath, fname string) error {
 	}
 	config.Store(&cfg)
 	return nil
-}
-
-func SaveDyConfig() {
-	// TODO
 }
