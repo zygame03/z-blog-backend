@@ -3,7 +3,6 @@ package infra
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -29,6 +28,5 @@ func InitCache(cfg *RedisConfig) (*redis.Client, error) {
 		return nil, fmt.Errorf("连接 Redis 失败: %w", err)
 	}
 
-	log.Println("Redis 初始化成功")
 	return rdb, nil
 }

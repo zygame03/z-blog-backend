@@ -1,4 +1,4 @@
-package websiteData
+package site
 
 import (
 	"my_web/backend/internal/global"

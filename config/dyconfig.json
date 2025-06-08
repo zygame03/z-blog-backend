@@ -5,5 +5,8 @@
     },
     "website_data": {
         "cache_base_ttl": "60s"
+    },
+    "stats": {
+        "sync_interval": "60s"
     }
 }

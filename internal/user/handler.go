@@ -5,18 +5,16 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 type Handler struct {
 	response.BaseHandler
-	service *service
+	serv *service
 }
 
-func NewHandler(db *gorm.DB, rdb *redis.Client) *Handler {
+func NewHandler(serv *service) *Handler {
 	return &Handler{
-		service: newService(db, rdb),
+		serv: serv,
 	}
 }
 
@@ -32,7 +30,7 @@ func (h *Handler) getProfile(ctx *gin.Context) {
 		return
 	}
 
-	data, err := h.service.getProfile(ctx, id)
+	data, err := h.serv.getProfile(ctx, id)
 	if err != nil {
 		h.Fail(ctx, response.ErrDBOp)
 		return

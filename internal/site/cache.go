@@ -1,10 +1,9 @@
-package websiteData
+package site
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"my_web/backend/internal/logger"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -15,10 +14,10 @@ var (
 
 type cache struct {
 	rdb *redis.Client
-	cfg func() *WebsiteDataConfig
+	cfg func() *Config
 }
 
-func NewCache(rdb *redis.Client, cfg func() *WebsiteDataConfig) *cache {
+func newCache(rdb *redis.Client, cfg func() *Config) *cache {
 	return &cache{
 		rdb: rdb,
 		cfg: cfg,
@@ -26,7 +25,7 @@ func NewCache(rdb *redis.Client, cfg func() *WebsiteDataConfig) *cache {
 }
 
 // get intro from cache
-func (c *cache) GetIntro(ctx context.Context) (string, error) {
+func (c *cache) getIntro(ctx context.Context) (string, error) {
 	key := getIntroKey()
 
 	data, err := c.rdb.Get(ctx, key).Result()
@@ -35,9 +34,6 @@ func (c *cache) GetIntro(ctx context.Context) (string, error) {
 	}
 
 	if err != nil {
-		logger.Error(
-			"cache get intro failed",
-		)
 		return "", err
 	}
 
@@ -45,14 +41,11 @@ func (c *cache) GetIntro(ctx context.Context) (string, error) {
 }
 
 // set intro to cache
-func (c *cache) SetIntro(ctx context.Context, intro string) error {
+func (c *cache) setIntro(ctx context.Context, intro string) error {
 	key := getIntroKey()
 
 	err := c.rdb.Set(ctx, key, intro, c.cfg().CacheBaseTTL).Err()
 	if err != nil {
-		logger.Error(
-			"set intro failed",
-		)
 		return err
 	}
 
@@ -74,9 +67,6 @@ func (c *cache) getAnnouncement(ctx context.Context) ([]string, error) {
 	var announcement []string
 	err = json.Unmarshal([]byte(data), &announcement)
 	if err != nil {
-		logger.Error(
-			"announcement unmarshal failed",
-		)
 		return nil, err
 	}
 
@@ -93,9 +83,6 @@ func (c *cache) setAnnouncement(ctx context.Context, data []string) error {
 
 	err = c.rdb.Set(ctx, key, b, c.cfg().CacheBaseTTL).Err()
 	if err != nil {
-		logger.Error(
-			"set announcement failed",
-		)
 		return err
 	}
 

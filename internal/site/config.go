@@ -1,11 +1,11 @@
-package websiteData
+package site
 
 import (
 	"my_web/backend/internal/response"
 	"time"
 )
 
-type WebsiteDataConfig struct {
+type Config struct {
 	CacheBaseTTL time.Duration `mapstructure:"cache_base_ttl"`
 }
 

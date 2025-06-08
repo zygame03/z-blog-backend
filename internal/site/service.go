@@ -1,4 +1,4 @@
-package websiteData
+package site
 
 import (
 	"context"
@@ -8,26 +8,26 @@ import (
 	"gorm.io/gorm"
 )
 
-type service struct {
-	db  *database
+type Service struct {
+	db  *repo
 	rdb *cache
 
-	getCfg func() *WebsiteDataConfig
+	getCfg func() *Config
 }
 
-func newService(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *service {
-	s := service{
+func NewService(db *gorm.DB, rdb *redis.Client, cfg func() *Config) *Service {
+	s := Service{
 		getCfg: cfg,
 	}
 
-	s.db = NewDatabase(db)
-	s.rdb = NewCache(rdb, cfg)
+	s.db = newRepo(db)
+	s.rdb = newCache(rdb, cfg)
 
 	return &s
 }
 
-func (s *service) getIntro(ctx context.Context) (string, error) {
-	data, err := s.rdb.GetIntro(ctx)
+func (s *Service) getIntro(ctx context.Context) (string, error) {
+	data, err := s.rdb.getIntro(ctx)
 	if err == nil {
 		logger.Info(
 			"get intro from cache",
@@ -44,14 +44,14 @@ func (s *service) getIntro(ctx context.Context) (string, error) {
 			return data, err
 		}
 
-		s.rdb.SetIntro(ctx, data)
+		s.rdb.setIntro(ctx, data)
 		return data, err
 	}
 
 	return s.db.getIntro()
 }
 
-func (s *service) getAnnouncement(ctx context.Context) ([]string, error) {
+func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
 	data, err := s.rdb.getAnnouncement(ctx)
 	if err == nil {
 		logger.Info(

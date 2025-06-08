@@ -20,10 +20,20 @@ func getProfileKey(id int) string {
 	return fmt.Sprintf("user:profile:%d", id)
 }
 
-func cacheGetProfile(ctx context.Context, rdb *redis.Client, id int) (*Profile, error) {
+type cache struct {
+	rdb *redis.Client
+}
+
+func newCache(rdb *redis.Client) *cache {
+	return &cache{
+		rdb: rdb,
+	}
+}
+
+func (c *cache) getProfile(ctx context.Context, id int) (*Profile, error) {
 	key := getProfileKey(id)
 
-	data, err := rdb.Get(ctx, key).Result()
+	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		logger.Info(
 			"cache miss",
@@ -53,14 +63,14 @@ func cacheGetProfile(ctx context.Context, rdb *redis.Client, id int) (*Profile, 
 	return &data_s, nil
 }
 
-func cacheSetProfile(ctx context.Context, rdb *redis.Client, id int, data *Profile) error {
+func (c *cache) setProfile(ctx context.Context, id int, data *Profile) error {
 	data_s, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
 
 	key := getProfileKey(id)
-	_, err = rdb.Set(ctx, key, string(data_s), 1*time.Hour).Result()
+	_, err = c.rdb.Set(ctx, key, string(data_s), 1*time.Hour).Result()
 	if err != nil {
 		return err
 	}

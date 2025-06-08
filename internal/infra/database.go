@@ -2,11 +2,10 @@ package infra
 
 import (
 	"fmt"
-	"log"
 	"my_web/backend/internal/article"
+	"my_web/backend/internal/site"
 	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
-	"my_web/backend/internal/websiteData"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -31,17 +30,17 @@ func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("连接数据库失败: %w", err)
+		return nil, err
 	}
 
 	// 自动迁移
 	if err := db.AutoMigrate(
 		&article.Article{},
 		&user.Profile{},
-		&websiteData.WebsiteData{},
+		&site.WebsiteData{},
 		&stats.NumStats{},
 	); err != nil {
-		return nil, fmt.Errorf("数据库自动迁移失败: %w", err)
+		return nil, err
 	}
 
 	data := stats.NumStats{
@@ -50,6 +49,5 @@ func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
 	}
 	db.Model(&stats.NumStats{}).Create(&data)
 
-	log.Println("数据库初始化成功")
 	return db, nil
 }

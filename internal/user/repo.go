@@ -7,7 +7,17 @@ import (
 	"gorm.io/gorm"
 )
 
-func repoGetProfile(db *gorm.DB, id int) (*Profile, error) {
+type repo struct {
+	db *gorm.DB
+}
+
+func newRepo(db *gorm.DB) *repo {
+	return &repo{
+		db: db,
+	}
+}
+
+func (r *repo) getProfile(db *gorm.DB, id int) (*Profile, error) {
 	var profile Profile
 
 	result := db.

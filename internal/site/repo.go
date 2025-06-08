@@ -1,52 +1,45 @@
-package websiteData
+package site
 
 import (
-	"my_web/backend/internal/logger"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-type database struct {
-	DB *gorm.DB
+type repo struct {
+	db *gorm.DB
 }
 
-func NewDatabase(db *gorm.DB) *database {
-	return &database{
-		DB: db,
+func newRepo(db *gorm.DB) *repo {
+	return &repo{
+		db: db,
 	}
 }
 
 // get intro from repository
-func (db *database) getIntro() (string, error) {
+func (db *repo) getIntro() (string, error) {
 	var data WebsiteData
 
-	result := db.DB.
+	result := db.db.
 		Where("key = ?", "intro").
 		First(&data)
 	if result.Error != nil {
-		logger.Error(
-			"database get intro failed",
-		)
 		return "", result.Error
 	}
 
 	return data.Value, nil
 }
 
-func (db *database) getAnnouncement() ([]string, error) {
+func (db *repo) getAnnouncement() ([]string, error) {
 	var data []string
 	now := time.Now()
 
-	result := db.DB.
+	result := db.db.
 		Model(&Announcement{}).
 		Select("text").
 		Where("online_at <= ? AND offline_at >= ?", now, now).
 		Find(&data)
 	if result.Error != nil {
-		logger.Error(
-			"database get announcement failed",
-		)
 		return nil, result.Error
 	}
 

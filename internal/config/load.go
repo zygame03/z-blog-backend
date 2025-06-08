@@ -1,9 +1,11 @@
 package config
 
 import (
-	"log"
+	"fmt"
+	"my_web/backend/internal/logger"
 
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 func LoadConfig(fpath, fname string, cfg any) error {
@@ -12,15 +14,22 @@ func LoadConfig(fpath, fname string, cfg any) error {
 	v.AddConfigPath(fpath)
 	v.SetConfigName(fname)
 	if err := v.ReadInConfig(); err != nil {
-		log.Println("读取配置文件失败", fpath, fname, err)
+		logger.Error(
+			"读取配置文件失败",
+			zap.String("文件路径", fmt.Sprintf(fpath, fname)),
+			zap.Error(err),
+		)
 		return err
 	}
 
 	if err := v.Unmarshal(cfg); err != nil {
-		log.Println("解析配置文件失败", err)
+		logger.Error(
+			"解析配置文件失败",
+			zap.Error(err),
+		)
 		return err
 	}
 
-	log.Println("配置读取成功")
+	logger.Info("配置读取成功")
 	return nil
 }

@@ -14,7 +14,7 @@ func ViewsCounter(s *stats.Service) gin.HandlerFunc {
 
 		// 结果校验
 		if ctx.Writer.Status() == 200 {
-			s.RecordUV(ip)
+			s.RecordUV(ctx, ip)
 		}
 	}
 }
