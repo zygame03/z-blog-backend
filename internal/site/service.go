@@ -55,7 +55,7 @@ func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
 	data, err := s.rdb.getAnnouncement(ctx)
 	if err == nil {
 		logger.Info(
-			"get intro from cache",
+			"get announcement from cache",
 		)
 
 		return data, err
@@ -63,7 +63,7 @@ func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
 
 	if err == ErrCacheMiss {
 		logger.Info(
-			"cache miss for intro",
+			"cache miss for announcement",
 		)
 		data, err = s.db.getAnnouncement()
 		if err != nil {

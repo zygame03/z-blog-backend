@@ -26,10 +26,7 @@ type OptionExtra struct {
 	Option []Option `json:"option"`
 }
 
-func NewOptionSchema(
-	id, title, desc string,
-	opts []Option,
-) *FieldSchema {
+func NewOptionSchema(id, title, desc string, opts []Option) *FieldSchema {
 	return &FieldSchema{
 		ID:    id,
 		Title: title,
@@ -44,15 +41,12 @@ type BoolExtra struct {
 	FalseLabel string `json:"falseLabel"`
 }
 
-func NewBoolSchema(
-	id, title, desc string,
-	trueL, falseL string,
-) *FieldSchema {
+func NewBoolSchema(id, title, desc string, trueL, falseL string) *FieldSchema {
 	return &FieldSchema{
 		ID:    id,
 		Title: title,
 		Desc:  desc,
-		Type:  Toption,
+		Type:  Tbool,
 		Extra: BoolExtra{
 			TrueLabel:  trueL,
 			FalseLabel: falseL,
@@ -66,15 +60,12 @@ type NumberExtra struct {
 	Step float64 `json:"step"`
 }
 
-func NewNumberSchema(
-	id, title, desc string,
-	max, min, step float64,
-) *FieldSchema {
+func NewNumberSchema(id, title, desc string, max, min, step float64) *FieldSchema {
 	return &FieldSchema{
 		ID:    id,
 		Title: title,
 		Desc:  desc,
-		Type:  Toption,
+		Type:  Tnumber,
 		Extra: NumberExtra{
 			Max:  max,
 			Min:  min,

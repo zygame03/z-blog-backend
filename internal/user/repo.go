@@ -17,10 +17,9 @@ func newRepo(db *gorm.DB) *repo {
 	}
 }
 
-func (r *repo) getProfile(db *gorm.DB, id int) (*Profile, error) {
+func (r *repo) getProfile(id int) (*Profile, error) {
 	var profile Profile
-
-	result := db.
+	result := r.db.
 		Model(&Profile{}).
 		Where("id = ?", id).
 		First(&profile)

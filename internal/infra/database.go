@@ -3,10 +3,12 @@ package infra
 import (
 	"fmt"
 	"my_web/backend/internal/article"
+	"my_web/backend/internal/logger"
 	"my_web/backend/internal/site"
 	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
 
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -19,13 +21,15 @@ type DatabaseConfig struct {
 	DBName   string `mapstructure:"dbname"`
 	Port     uint   `mapstructure:"port"`
 	SSLMode  string `mapstructure:"sslmode"`
+
+	AutoMigrate bool `mapstructure:"auto_migrate"`
 }
 
 // InitDatabase 初始化数据库连接
-func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
+func InitDatabase(conf *DatabaseConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
-		cfg.Host, cfg.User, cfg.Password, cfg.DBName, cfg.Port, cfg.SSLMode,
+		conf.Host, conf.User, conf.Password, conf.DBName, conf.Port, conf.SSLMode,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -33,21 +37,25 @@ func InitDatabase(cfg *DatabaseConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// 自动迁移
-	if err := db.AutoMigrate(
-		&article.Article{},
-		&user.Profile{},
-		&site.WebsiteData{},
-		&stats.NumStats{},
-	); err != nil {
-		return nil, err
+	if conf.AutoMigrate {
+		logger.Info(
+			"start database auto migrate",
+		)
+		// 自动迁移
+		err := db.AutoMigrate(
+			&article.Article{},
+			&user.Profile{},
+			&site.WebsiteData{},
+			&stats.NumStats{},
+		)
+		if err != nil {
+			logger.Info(
+				"database auto migrate failed",
+				zap.Error(err),
+			)
+			return nil, err
+		}
 	}
-
-	data := stats.NumStats{
-		Key:   "view",
-		Value: 0,
-	}
-	db.Model(&stats.NumStats{}).Create(&data)
 
 	return db, nil
 }

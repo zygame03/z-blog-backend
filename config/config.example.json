@@ -44,7 +44,9 @@
     "password": "",
     "dbname": "myBlog",
     "port": 5432,
-    "sslmode": "disable"
+    "sslmode": "disable",
+
+    "auto_migrate": false
   },
 
   "jwt_key": ""

@@ -13,14 +13,14 @@ var (
 )
 
 type cache struct {
-	rdb *redis.Client
-	cfg func() *Config
+	rdb  *redis.Client
+	conf func() *Config
 }
 
-func newCache(rdb *redis.Client, cfg func() *Config) *cache {
+func newCache(rdb *redis.Client, conf func() *Config) *cache {
 	return &cache{
-		rdb: rdb,
-		cfg: cfg,
+		rdb:  rdb,
+		conf: conf,
 	}
 }
 
@@ -44,7 +44,7 @@ func (c *cache) getIntro(ctx context.Context) (string, error) {
 func (c *cache) setIntro(ctx context.Context, intro string) error {
 	key := getIntroKey()
 
-	err := c.rdb.Set(ctx, key, intro, c.cfg().CacheBaseTTL).Err()
+	err := c.rdb.Set(ctx, key, intro, c.conf().CacheBaseTTL).Err()
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (c *cache) setAnnouncement(ctx context.Context, data []string) error {
 		return err
 	}
 
-	err = c.rdb.Set(ctx, key, b, c.cfg().CacheBaseTTL).Err()
+	err = c.rdb.Set(ctx, key, b, c.conf().CacheBaseTTL).Err()
 	if err != nil {
 		return err
 	}
