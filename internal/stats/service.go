@@ -69,16 +69,10 @@ func (s *Service) RecordUV(ctx context.Context, ip string) {
 	)
 }
 
-func (s *Service) GetViews(ctx context.Context) (int64, int64, error) {
+func (s *Service) getViews() (int64, error) {
 	num, err := s.db.getViews()
 	if err != nil {
-		return -1, -1, err
+		return -1, err
 	}
-
-	n2, err := s.rdb.getViewUV(ctx)
-	if err != nil {
-		return num, -1, err
-	}
-
-	return num, n2, nil
+	return num, nil
 }
