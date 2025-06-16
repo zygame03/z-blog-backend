@@ -41,9 +41,9 @@ func InitDatabase(conf *DatabaseConfig) (*gorm.DB, error) {
 		logger.Info(
 			"start database auto migrate",
 		)
-		// 自动迁移
 		err := db.AutoMigrate(
 			&article.Article{},
+			&user.User{},
 			&user.Profile{},
 			&site.WebsiteData{},
 			&stats.NumStats{},
