@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"my_web/backend/internal/global"
 	"my_web/backend/internal/logger"
 
 	"github.com/redis/go-redis/v9"
@@ -19,7 +20,7 @@ type Service struct {
 func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
 	s := Service{
 		db:   newRepo(db),
-		rdb:  newCache(rdb),
+		rdb:  newCache(rdb, conf),
 		conf: conf,
 	}
 
@@ -32,9 +33,9 @@ func (s *Service) RegisterCron(cron *cron.Cron) {
 		return
 	}
 	logger.Info(
-		"添加定时任务成功",
-		zap.Int("间隔", int(s.conf().SyncInterval)),
-		zap.String("任务描述", "网站浏览数同步"),
+		"add func successfully",
+		zap.Duration("interval", s.conf().SyncInterval),
+		zap.String("func", "SyncInterval"),
 	)
 }
 
@@ -44,14 +45,16 @@ func (s *Service) syncViewUV() {
 	if err != nil {
 		logger.Error(
 			"get site view uv failed",
+			zap.Error(err),
 		)
 		return
 	}
 
-	err = s.db.updateViews(num)
+	err = s.db.updateViews(ctx, num)
 	if err != nil {
 		logger.Error(
-			"update site view failed",
+			"update site view faied",
+			zap.Error(err),
 		)
 		return
 	}
@@ -60,6 +63,7 @@ func (s *Service) syncViewUV() {
 	if err != nil {
 		logger.Error(
 			"delete site view UV failed",
+			zap.Error(err),
 		)
 	}
 }
@@ -67,6 +71,10 @@ func (s *Service) syncViewUV() {
 func (s *Service) RecordUV(ctx context.Context, ip string) {
 	err := s.rdb.addViewUV(ctx, ip)
 	if err != nil {
+		logger.Error(
+			"record failed",
+			zap.String("ip", ip),
+		)
 		return
 	}
 	logger.Info(
@@ -75,10 +83,37 @@ func (s *Service) RecordUV(ctx context.Context, ip string) {
 	)
 }
 
-func (s *Service) getViews() (int64, error) {
-	num, err := s.db.getViews()
+func (s *Service) getViews(ctx context.Context) (int, error) {
+	num, err := s.rdb.getView(ctx)
+	if err == nil {
+		logger.Info(
+			"get view from cache",
+		)
+		return num, err
+	}
+	if err != global.ErrCacheMiss {
+		logger.Error(
+			"get cache from cache failed",
+			zap.Error(err),
+		)
+	} else {
+		logger.Info(
+			"cache miss",
+		)
+	}
+
+	num, err = s.db.getViews(ctx)
 	if err != nil {
 		return -1, err
 	}
+	err = s.rdb.setView(ctx, num)
+	if err != nil {
+		logger.Error(
+			"cache set view failed",
+			zap.Int("view", num),
+		)
+		return num, err
+	}
+
 	return num, nil
 }

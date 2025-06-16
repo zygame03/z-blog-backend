@@ -6,6 +6,8 @@ import (
 	"my_web/backend/internal/response"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +23,9 @@ func NewHandler(serv *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
+
 	r := e.Group("/api/home")
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/config/all", h.getSchemaAll)
 	r.GET("/config/module/:name", h.getSchemaWithModule)
 	// r.POST("/config/all", h.loadConfigAll)

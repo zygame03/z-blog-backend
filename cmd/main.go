@@ -14,6 +14,8 @@ import (
 	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
 
+	_ "my_web/backend/docs"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,6 +25,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title z-blog-backend API
+// @version 1.0
+// @description Blog backend API
+// @host localhost:8080
+// @BasePath /api
 func main() {
 	logger.InitLogger()
 	// load config

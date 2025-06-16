@@ -1,6 +1,8 @@
 package stats
 
 import (
+	"context"
+
 	"gorm.io/gorm"
 )
 
@@ -14,8 +16,9 @@ func newRepo(db *gorm.DB) *repo {
 	}
 }
 
-func (r *repo) updateViews(num int64) error {
+func (r *repo) updateViews(ctx context.Context, num int64) error {
 	result := r.db.
+		WithContext(ctx).
 		Model(&NumStats{}).
 		Where("key = ?", "view").
 		UpdateColumn("value", gorm.Expr("value + ?", num))
@@ -26,15 +29,17 @@ func (r *repo) updateViews(num int64) error {
 	return nil
 }
 
-func (r *repo) getViews() (int64, error) {
-	var num int64
+func (r *repo) getViews(ctx context.Context) (int, error) {
+	var num int
 	result := r.db.
+		WithContext(ctx).
 		Model(&NumStats{}).
 		Where("key = ?", "view").
 		Select("value").
-		Find(&num)
+		Pluck("value", &num)
 	if result.Error != nil {
 		return -1, result.Error
 	}
+
 	return num, nil
 }

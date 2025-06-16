@@ -16,7 +16,7 @@ func Schema() *response.ModuleSchema {
 		Fields: []*response.FieldSchema{
 			response.NewNumberSchema(
 				"syncInterval",
-				"syncInterval",
+				"sync interval",
 				"",
 				-1,
 				0,
@@ -24,7 +24,7 @@ func Schema() *response.ModuleSchema {
 			),
 			response.NewNumberSchema(
 				"cacheBaseTTL",
-				"cacheBaseTTL",
+				"cache base ttl",
 				"",
 				-1,
 				0,

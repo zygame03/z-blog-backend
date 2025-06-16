@@ -19,14 +19,14 @@ func NewHandler(serv *Service) *Handler {
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	r := e.Group("/api/stats")
-	r.GET("views", h.getViews)
+	r.GET("/views", h.getViews)
 }
 
 func (h *Handler) getViews(ctx *gin.Context) {
-	data, err := h.serv.getViews()
+	data, err := h.serv.getViews(ctx)
 	if err != nil {
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
-
 	h.Success(ctx, data)
 }
