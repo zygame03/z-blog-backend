@@ -65,7 +65,10 @@ func (r *repo) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Art
 func (r *repo) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	var article Article
 
-	result := r.db.WithContext(ctx).First(&article, id)
+	result := r.db.
+		WithContext(ctx).
+		Where("id = ? AND is_delete = false AND status = ?", id, ArticlePublic).
+		First(&article)
 	if result.Error != nil {
 		return &article, fmt.Errorf("db get article by id failed: %w", result.Error)
 	}
