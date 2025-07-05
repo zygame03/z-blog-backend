@@ -25,9 +25,8 @@ func newCache(rdb *redis.Client, conf func() *Config) *cache {
 func (c *cache) getView(ctx context.Context) (int, error) {
 	view, err := c.rdb.Get(ctx, viewKey()).Result()
 	if err == redis.Nil {
-		logger.Error(
+		logger.Info(
 			"cache miss",
-			zap.Error(err),
 		)
 		return -1, global.ErrCacheMiss
 	}

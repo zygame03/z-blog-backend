@@ -87,13 +87,13 @@ func (s *Service) getViews(ctx context.Context) (int, error) {
 	num, err := s.rdb.getView(ctx)
 	if err == nil {
 		logger.Info(
-			"get view from cache",
+			"cache get view",
 		)
 		return num, err
 	}
 	if err != global.ErrCacheMiss {
 		logger.Error(
-			"get cache from cache failed",
+			"cache get view failed",
 			zap.Error(err),
 		)
 	} else {
@@ -104,6 +104,10 @@ func (s *Service) getViews(ctx context.Context) (int, error) {
 
 	num, err = s.db.getViews(ctx)
 	if err != nil {
+		logger.Error(
+			"repo get view failed",
+			zap.Error(err),
+		)
 		return -1, err
 	}
 	err = s.rdb.setView(ctx, num)
