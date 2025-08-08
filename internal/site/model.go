@@ -15,7 +15,7 @@ type WebsiteData struct {
 // announcement
 type Announcement struct {
 	global.BaseModel
-	Text      string
-	OnlineAt  time.Time
-	OfflineAt time.Time
+	Text      string    `json:"text"`
+	OnlineAt  time.Time `josn:"online_at"`
+	OfflineAt time.Time `json:"offline_at"`
 }

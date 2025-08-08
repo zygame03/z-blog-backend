@@ -34,9 +34,14 @@ func (h *Handler) getIntro(ctx *gin.Context) {
 
 func (h *Handler) getAnnouncement(ctx *gin.Context) {
 	data, err := h.service.getAnnouncement(ctx)
+	var vo []string
+	for _, v := range data {
+		vo = append(vo, v.Text)
+	}
+
 	if err != nil {
 		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
-	h.Success(ctx, data)
+	h.Success(ctx, vo)
 }

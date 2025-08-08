@@ -5,8 +5,14 @@ import (
 	"my_web/backend/internal/logger"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+type announcementBO struct {
+	Id   int    `json:"id"`
+	Text string `json:"text"`
+}
 
 type Service struct {
 	db  *repo
@@ -51,7 +57,7 @@ func (s *Service) getIntro(ctx context.Context) (string, error) {
 	return s.db.getIntro()
 }
 
-func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
+func (s *Service) getAnnouncement(ctx context.Context) ([]*announcementBO, error) {
 	data, err := s.rdb.getAnnouncement(ctx)
 	if err == nil {
 		logger.Info(
@@ -65,8 +71,12 @@ func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
 		logger.Info(
 			"cache miss for announcement",
 		)
-		data, err = s.db.getAnnouncement()
+		data, err = s.db.getAnnouncement(ctx)
 		if err != nil {
+			logger.Error(
+				"repo get announcement failed",
+				zap.Error(err),
+			)
 			return data, err
 		}
 
@@ -74,5 +84,5 @@ func (s *Service) getAnnouncement(ctx context.Context) ([]string, error) {
 		return data, err
 	}
 
-	return s.db.getAnnouncement()
+	return s.db.getAnnouncement(ctx)
 }

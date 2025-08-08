@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"my_web/backend/internal/logger"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var (
@@ -52,8 +54,8 @@ func (c *cache) setIntro(ctx context.Context, intro string) error {
 	return nil
 }
 
-func (c *cache) getAnnouncement(ctx context.Context) ([]string, error) {
-	key := getAnnouncementKey()
+func (c *cache) getAnnouncement(ctx context.Context) ([]*announcementBO, error) {
+	key := getAllAnnouncementKey()
 
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -64,7 +66,7 @@ func (c *cache) getAnnouncement(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	var announcement []string
+	var announcement []*announcementBO
 	err = json.Unmarshal([]byte(data), &announcement)
 	if err != nil {
 		return nil, err
@@ -73,16 +75,21 @@ func (c *cache) getAnnouncement(ctx context.Context) ([]string, error) {
 	return announcement, nil
 }
 
-func (c *cache) setAnnouncement(ctx context.Context, data []string) error {
-	key := getAnnouncementKey()
+func (c *cache) setAnnouncement(ctx context.Context, data []*announcementBO) error {
+	pipe := c.rdb.Pipeline()
 
-	b, err := json.Marshal(data)
-	if err != nil {
-		return err
+	for _, v := range data {
+		err := pipe.Set(ctx, getAnnouncementKey(v.Id), v.Text, c.conf().CacheBaseTTL).Err()
+		if err != nil {
+			continue
+		}
 	}
-
-	err = c.rdb.Set(ctx, key, b, c.conf().CacheBaseTTL).Err()
+	_, err := pipe.Exec(ctx)
 	if err != nil {
+		logger.Error(
+			"cache execute pipeline commands failed",
+			zap.Error(err),
+		)
 		return err
 	}
 

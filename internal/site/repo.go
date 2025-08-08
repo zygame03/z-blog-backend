@@ -1,8 +1,11 @@
 package site
 
 import (
+	"context"
+	"my_web/backend/internal/logger"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -17,10 +20,10 @@ func newRepo(db *gorm.DB) *repo {
 }
 
 // get intro from repository
-func (db *repo) getIntro() (string, error) {
+func (r *repo) getIntro() (string, error) {
 	var data WebsiteData
 
-	result := db.db.
+	result := r.db.
 		Where("key = ?", "intro").
 		First(&data)
 	if result.Error != nil {
@@ -30,16 +33,21 @@ func (db *repo) getIntro() (string, error) {
 	return data.Value, nil
 }
 
-func (db *repo) getAnnouncement() ([]string, error) {
-	var data []string
+func (r *repo) getAnnouncement(ctx context.Context) ([]*announcementBO, error) {
+	var data []*announcementBO
 	now := time.Now()
 
-	result := db.db.
+	result := r.db.
+		WithContext(ctx).
 		Model(&Announcement{}).
-		Select("text").
 		Where("online_at <= ? AND offline_at >= ?", now, now).
+		Select("id", "text").
 		Find(&data)
 	if result.Error != nil {
+		logger.Error(
+			"repo get announcement failed",
+			zap.Error(result.Error),
+		)
 		return nil, result.Error
 	}
 
