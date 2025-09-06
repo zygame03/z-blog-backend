@@ -3,7 +3,9 @@ package article
 import (
 	"context"
 	"fmt"
+	"my_web/backend/internal/logger"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +19,7 @@ func newRepo(db *gorm.DB) *repo {
 	}
 }
 
-func (r *repo) getAllArticleIDs(ctx context.Context) ([]int, error) {
+func (r *repo) listIDs(ctx context.Context) ([]int, error) {
 	ids := []int{}
 
 	result := r.db.
@@ -33,9 +35,9 @@ func (r *repo) getAllArticleIDs(ctx context.Context) ([]int, error) {
 	return ids, nil
 }
 
-// getArticlesByPage
-func (r *repo) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
-	var articles []ArticleWithoutContent
+// listByPage
+func (r *repo) listByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
+	var articles []ArticleSummary
 	var total int64
 
 	result := r.db.
@@ -44,7 +46,7 @@ func (r *repo) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Art
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Count(&total)
 	if result.Error != nil {
-		return nil, 0, fmt.Errorf("db count articles failed: %w", result.Error)
+		return nil, 0, result.Error
 	}
 
 	result = r.db.
@@ -55,14 +57,14 @@ func (r *repo) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Art
 		Limit(pageSize).
 		Find(&articles)
 	if result.Error != nil {
-		return nil, 0, fmt.Errorf("db find articles by page failed: %w", result.Error)
+		return nil, 0, result.Error
 	}
 
 	return articles, int(total), nil
 }
 
-// getArticleByID
-func (r *repo) getArticleByID(ctx context.Context, id int) (*Article, error) {
+// getByID
+func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
 	var article Article
 
 	result := r.db.
@@ -76,31 +78,15 @@ func (r *repo) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	return &article, nil
 }
 
-func (r *repo) mGetArticleByID(ctx context.Context, ids []int) ([]*Article, error) {
-	var articles []*Article
-
-	err := r.db.
-		WithContext(ctx).
-		Where("id IN ?", ids).
-		Find(&articles).
-		Error
-	if err != nil {
-		return nil, fmt.Errorf("db mget articles by ids failed: %w", err)
-	}
-
-	return articles, nil
-}
-
-// getArticlesByPopular
-func (r *repo) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
-	var articles []ArticleWithoutContent
+// listPopular
+func (r *repo) listPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
+	var articles []ArticleSummary
 
 	result := r.db.
 		WithContext(ctx).
 		Model(&Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Order("views DESC").
-		Select("id, created_at, updated_at, title, author_name, views, tags, cover").
 		Limit(limit).
 		Find(&articles)
 	if result.Error != nil {
@@ -121,5 +107,32 @@ func (r *repo) incrementViews(ctx context.Context, id int, increment int64) erro
 		return fmt.Errorf("db increment article views failed: %w", result.Error)
 	}
 
+	return nil
+}
+
+func (r *repo) save(ctx context.Context, article *Article) (int, error) {
+	err := r.db.WithContext(ctx).Save(article).Error
+	if err != nil {
+		logger.Error(
+			"save article failed",
+			zap.Int("id", article.ID),
+			zap.Error(err),
+		)
+		return 0, err
+	}
+
+	return article.ID, nil
+}
+
+func (r *repo) delete(ctx context.Context, id int) error {
+	err := r.db.
+		WithContext(ctx).
+		Model(&Article{}).
+		Where("id = ?", id).
+		UpdateColumn("is_delete", false).
+		Error
+	if err != nil {
+		return err
+	}
 	return nil
 }

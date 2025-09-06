@@ -26,7 +26,7 @@ func newCache(rdb *redis.Client, cfg func() *Config) *cache {
 	}
 }
 
-func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
 	key := articleByPageKey(page, pageSize)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -36,7 +36,7 @@ func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Ar
 		return nil, 0, fmt.Errorf("cache get articles by page failed: %w", err)
 	}
 
-	var articles []ArticleWithoutContent
+	var articles []ArticleSummary
 	if err = json.Unmarshal([]byte(data), &articles); err != nil {
 		return nil, 0, fmt.Errorf("unmarshal articles by page failed: %w", err)
 	}
@@ -58,7 +58,7 @@ func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Ar
 	return articles, total, nil
 }
 
-func (c *cache) setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleWithoutContent, total int) error {
+func (c *cache) setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleSummary, total int) error {
 	// 序列化文章列表
 	data, err := json.Marshal(articles)
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *cache) setArticleByID(ctx context.Context, id int, article *Article) er
 	return nil
 }
 
-func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
+func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
 	key := articleByPopularKey(limit)
 
 	data, err := c.rdb.Get(ctx, key).Result()
@@ -121,7 +121,7 @@ func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleW
 		return nil, fmt.Errorf("cache get articles by popular failed: %w", err)
 	}
 
-	var articles []ArticleWithoutContent
+	var articles []ArticleSummary
 	if err := json.Unmarshal([]byte(data), &articles); err != nil {
 		return nil, fmt.Errorf("unmarshal articles by popular failed: %w", err)
 	}
@@ -129,7 +129,7 @@ func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleW
 	return articles, nil
 }
 
-func (c *cache) setArticlesByPopular(ctx context.Context, limit int, articles []ArticleWithoutContent) error {
+func (c *cache) setArticlesByPopular(ctx context.Context, limit int, articles []ArticleSummary) error {
 	data, err := json.Marshal(articles)
 	if err != nil {
 		return fmt.Errorf("marshal articles by popular failed: %w", err)

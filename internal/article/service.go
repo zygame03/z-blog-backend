@@ -11,20 +11,22 @@ import (
 )
 
 type ArticleRepo interface {
-	getAllArticleIDs(ctx context.Context) ([]int, error)
-	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error)
-	getArticleByID(ctx context.Context, id int) (*Article, error)
-	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error)
+	listIDs(ctx context.Context) ([]int, error)
+	listByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error)
+	getByID(ctx context.Context, id int) (*Article, error)
+	listPopular(ctx context.Context, limit int) ([]ArticleSummary, error)
 	incrementViews(ctx context.Context, id int, inc int64) error
+	save(ctx context.Context, article *Article) (int, error)
+	delete(ctx context.Context, id int) error
 }
 
 type ArticleCache interface {
-	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error)
-	setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleWithoutContent, total int) error
+	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error)
+	setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleSummary, total int) error
 	getArticleByID(ctx context.Context, id int) (*Article, error)
 	setArticleByID(ctx context.Context, id int, article *Article) error
-	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error)
-	setArticlesByPopular(ctx context.Context, limit int, articles []ArticleWithoutContent) error
+	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error)
+	setArticlesByPopular(ctx context.Context, limit int, articles []ArticleSummary) error
 	addViewUV(ctx context.Context, id int, userID string) error
 	getViewUV(ctx context.Context, id int) (int64, error)
 	delViewUV(ctx context.Context, id int) error
@@ -63,7 +65,7 @@ func (s *ArticleService) RegisterCron(cron *cron.Cron) {
 
 func (s *ArticleService) syncArticleViews() {
 	ctx := context.Background()
-	ids, err := s.db.getAllArticleIDs(ctx)
+	ids, err := s.db.listIDs(ctx)
 	if err != nil {
 		logger.Error(
 			"load article ids for view sync failed",
@@ -107,7 +109,7 @@ func (s *ArticleService) syncArticleViews() {
 	}
 }
 
-func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
 	articles, total, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
 	if err == nil {
 		logger.Info(
@@ -118,40 +120,38 @@ func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize i
 		return articles, total, nil
 	}
 
-	if err == ErrCacheMiss {
+	if err != ErrCacheMiss {
+		logger.Error(
+			"get articles by page from cache failed",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+			zap.Error(err),
+		)
+	} else {
 		logger.Info(
 			"cache miss for articles by page",
 			zap.Int("page", page),
 			zap.Int("page_size", pageSize),
 			zap.Error(err),
 		)
-
-		articles, total, err = s.db.getArticlesByPage(ctx, page, pageSize)
-		if err != nil {
-			logger.Error(
-				"repo get articles by page failed",
-				zap.Int("page", page),
-				zap.Int("page_size", pageSize),
-				zap.Error(err),
-			)
-			return nil, 0, err
-		}
-
-		s.rdb.setArticlesByPage(ctx, page, pageSize, articles, total)
-		return articles, total, nil
 	}
 
-	logger.Error(
-		"get articles by page from cache failed",
-		zap.Int("page", page),
-		zap.Int("page_size", pageSize),
-		zap.Error(err),
-	)
+	articles, total, err = s.db.listByPage(ctx, page, pageSize)
+	if err != nil {
+		logger.Error(
+			"repo get articles by page failed",
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+			zap.Error(err),
+		)
+		return nil, 0, err
+	}
 
-	return s.db.getArticlesByPage(ctx, page, pageSize)
+	s.rdb.setArticlesByPage(ctx, page, pageSize, articles, total)
+	return articles, total, nil
 }
 
-func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
+func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
 	articles, err := s.rdb.getArticlesByPopular(ctx, limit)
 	if err == nil {
 		logger.Info(
@@ -166,23 +166,25 @@ func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([
 			"cache miss for articles by popular",
 			zap.Int("limit", limit),
 		)
-
-		articles, err = s.db.getArticlesByPopular(ctx, limit)
-		if err != nil {
-			return nil, err
-		}
-
-		go s.rdb.setArticlesByPopular(ctx, limit, articles)
-		return articles, nil
+	} else {
+		logger.Error(
+			"get articles by popular from cache failed",
+			zap.Int("limit", limit),
+			zap.Error(err),
+		)
 	}
 
-	logger.Error(
-		"get articles by popular from cache failed",
-		zap.Int("limit", limit),
-		zap.Error(err),
-	)
+	articles, err = s.db.listPopular(ctx, limit)
+	if err != nil {
+		logger.Error(
+			"repo get articles by popular failed",
+			zap.Error(err),
+		)
+		return nil, err
+	}
 
-	return s.db.getArticlesByPopular(ctx, limit)
+	s.rdb.setArticlesByPopular(ctx, limit, articles)
+	return articles, nil
 }
 
 func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
@@ -212,15 +214,25 @@ func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID stri
 		)
 	}
 
-	article, err = s.db.getArticleByID(ctx, id)
+	article, err = s.db.getByID(ctx, id)
 	if err != nil {
+		logger.Error(
+			"repo get article by id failed",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
 		return nil, err
 	}
+
 	s.rdb.addViewUV(ctx, id, userID)
 	s.rdb.setArticleByID(ctx, id, article)
 	return article, nil
 }
 
-func (s *ArticleService) getArticlesByTag(limit int) ([]Article, error) {
-	return nil, nil
+func (s *ArticleService) save(ctx context.Context, article *Article) (int, error) {
+	return s.db.save(ctx, article)
+}
+
+func (s *ArticleService) delete(ctx context.Context, id int) error {
+	return s.db.delete(ctx, id)
 }

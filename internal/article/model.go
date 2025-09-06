@@ -18,19 +18,25 @@ type Article struct {
 	Content    string        `json:"content" gorm:"text"` // 正文
 	AuthorName string        `json:"authorName"`          // 作者
 	Views      uint          `json:"views"`               // 浏览数
-	Tags       string        `json:"tags"`                // 标签（逗号分隔形式）
+	Tags       string        `json:"tags"`                // 标签（逗号分隔）
 	Cover      string        `json:"cover"`               // 封面
 	Status     ArticleStatus `json:"status"`              // 状态
 	IsDelete   bool          `json:"is_delete"`
 }
 
-// ---------------------------------------
-
-type ArticleWithoutContent struct {
+type ArticleSummary struct {
 	global.BaseModel
 	Title      string `json:"title"`
 	AuthorName string `json:"authorName"` // 作者
 	Views      uint   `json:"views"`      // 浏览数
 	Tags       string `json:"tags"`       // 标签（逗号分隔）
 	Cover      string `json:"cover"`      // 封面
+}
+
+type ArticleComment struct {
+	global.BaseModel
+	Name    string `json:"name"`
+	Content string `json:"content"`
+	Reply   int    `json:"reply"`
+	Like    int    `json:"like"`
 }

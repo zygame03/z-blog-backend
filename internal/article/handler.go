@@ -2,6 +2,7 @@ package article
 
 import (
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/middleware"
 	"my_web/backend/internal/response"
 	"strconv"
 
@@ -26,6 +27,9 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 		r.GET("", h.getArticles)
 		r.GET("/hot_articles", h.getHotArticles)
 		r.GET("/:id", h.getArticleDetail)
+
+		r.Use(middleware.JWTAuth())
+		r.POST("", h.saveArticle)
 	}
 }
 
@@ -33,10 +37,10 @@ type ArticleListByPageResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    struct {
-		Page  int                     `json:"page"`
-		Size  int                     `json:"size"`
-		Total int                     `json:"total"`
-		Data  []ArticleWithoutContent `json:"data"`
+		Page  int              `json:"page"`
+		Size  int              `json:"size"`
+		Total int              `json:"total"`
+		Data  []ArticleSummary `json:"data"`
 	} `json:"data"`
 }
 
@@ -83,7 +87,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 		return
 	}
 
-	h.Success(ctx, response.PageResult[ArticleWithoutContent]{
+	h.Success(ctx, response.PageResult[ArticleSummary]{
 		Page:  page,
 		Size:  pageSize,
 		Total: total,
@@ -92,9 +96,9 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 }
 
 type ArticleListResponse struct {
-	Code    int                     `json:"code"`
-	Message string                  `json:"message"`
-	Data    []ArticleWithoutContent `json:"data"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []ArticleSummary `json:"data"`
 }
 
 // 获取热门文章
@@ -163,4 +167,21 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	}
 
 	h.Success(ctx, data)
+}
+
+func (h *Handler) saveArticle(ctx *gin.Context) {
+	var article Article
+
+	err := ctx.ShouldBindJSON(&article)
+	if err != nil {
+		h.Fail(ctx, response.ErrRequest)
+		return
+	}
+
+	id, err := h.service.save(ctx, &article)
+	if err != nil {
+		h.Fail(ctx, response.ErrDBOp)
+		return
+	}
+	h.Success(ctx, id)
 }
