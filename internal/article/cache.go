@@ -3,15 +3,11 @@ package article
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"my_web/backend/internal/zerrors"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
-)
-
-var (
-	ErrCacheMiss = errors.New("cache miss")
 )
 
 type cache struct {
@@ -30,29 +26,29 @@ func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Ar
 	key := articleByPageKey(page, pageSize)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, 0, ErrCacheMiss
+		return nil, 0, zerrors.ErrCacheMiss
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("cache get articles by page failed: %w", err)
+		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	var articles []ArticleSummary
 	if err = json.Unmarshal([]byte(data), &articles); err != nil {
-		return nil, 0, fmt.Errorf("unmarshal articles by page failed: %w", err)
+		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrUnmarshal, err)
 	}
 
 	totalKey := articleTotalKey()
 	totalData, err := c.rdb.Get(ctx, totalKey).Result()
 	if err == redis.Nil {
-		return articles, 0, ErrCacheMiss
+		return articles, 0, zerrors.ErrCacheMiss
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("cache get article total failed: %w", err)
+		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	total, err := strconv.Atoi(totalData)
 	if err != nil {
-		return nil, 0, fmt.Errorf("parse article total failed: %w", err)
+		return nil, 0, zerrors.ErrParse
 	}
 
 	return articles, total, nil
@@ -62,7 +58,7 @@ func (c *cache) setArticlesByPage(ctx context.Context, page, pageSize int, artic
 	// 序列化文章列表
 	data, err := json.Marshal(articles)
 	if err != nil {
-		return fmt.Errorf("marshal articles by page failed: %w", err)
+		return zerrors.ErrMarshal
 	}
 
 	// 使用 Pipeline 批量设置
@@ -72,7 +68,7 @@ func (c *cache) setArticlesByPage(ctx context.Context, page, pageSize int, artic
 
 	_, err = pipe.Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("set articles by page cache failed: %w", err)
+		return fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	return nil
@@ -82,15 +78,15 @@ func (c *cache) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	key := articleByIDKey(id)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, ErrCacheMiss
+		return nil, zerrors.ErrCacheMiss
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cache get article by id failed: %w", err)
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	var article Article
 	if err := json.Unmarshal([]byte(data), &article); err != nil {
-		return nil, fmt.Errorf("unmarshal article by id failed: %w", err)
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrUnmarshal, err)
 	}
 
 	return &article, nil
@@ -99,12 +95,12 @@ func (c *cache) getArticleByID(ctx context.Context, id int) (*Article, error) {
 func (c *cache) setArticleByID(ctx context.Context, id int, article *Article) error {
 	data, err := json.Marshal(article)
 	if err != nil {
-		return fmt.Errorf("marshal article by id failed: %w", err)
+		return fmt.Errorf("%w: %v", zerrors.ErrMarshal, err)
 	}
 
 	err = c.rdb.Set(ctx, articleByIDKey(id), data, c.cfg().CacheBaseTTL).Err()
 	if err != nil {
-		return fmt.Errorf("set article by id cache failed: %w", err)
+		return fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	return nil
@@ -115,15 +111,15 @@ func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleS
 
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, ErrCacheMiss
+		return nil, zerrors.ErrCacheMiss
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cache get articles by popular failed: %w", err)
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	var articles []ArticleSummary
 	if err := json.Unmarshal([]byte(data), &articles); err != nil {
-		return nil, fmt.Errorf("unmarshal articles by popular failed: %w", err)
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrUnmarshal, err)
 	}
 
 	return articles, nil
@@ -132,12 +128,12 @@ func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleS
 func (c *cache) setArticlesByPopular(ctx context.Context, limit int, articles []ArticleSummary) error {
 	data, err := json.Marshal(articles)
 	if err != nil {
-		return fmt.Errorf("marshal articles by popular failed: %w", err)
+		return fmt.Errorf("%w: %v", zerrors.ErrMarshal, err)
 	}
 
 	err = c.rdb.Set(ctx, articleByPopularKey(limit), data, c.cfg().CacheBaseTTL).Err()
 	if err != nil {
-		return fmt.Errorf("set articles by popular cache failed: %w", err)
+		return fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
 	}
 
 	return nil

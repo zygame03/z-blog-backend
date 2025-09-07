@@ -25,7 +25,7 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 func (h *Handler) getViews(ctx *gin.Context) {
 	data, err := h.serv.getViews(ctx)
 	if err != nil {
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 	h.Success(ctx, data)

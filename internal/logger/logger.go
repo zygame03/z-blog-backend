@@ -40,26 +40,29 @@ func Fatal(msg string, fields ...zap.Field) {
 }
 
 func GinLogger() gin.HandlerFunc {
-	return func(c *gin.Context) {
+	return func(ctx *gin.Context) {
 		start := time.Now()
-		path := c.FullPath()
+		path := ctx.FullPath()
 		if path == "" {
-			path = c.Request.URL.Path
+			path = ctx.Request.URL.Path
 		}
-		method := c.Request.Method
-		clientIP := c.ClientIP()
+		method := ctx.Request.Method
+		clientIP := ctx.ClientIP()
 
-		c.Next()
+		ctx.Next()
 
 		latency := time.Since(start)
-		status := c.Writer.Status()
+		status := ctx.Writer.Status()
 
-		log.Info("http request",
+		Info("http request",
 			zap.String("method", method),
 			zap.String("path", path),
 			zap.Int("status", status),
 			zap.String("client_ip", clientIP),
 			zap.Duration("latency", latency),
 		)
+
+		// 异常日志打印
+		// 自动映射？
 	}
 }

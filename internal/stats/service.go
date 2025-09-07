@@ -2,8 +2,8 @@ package stats
 
 import (
 	"context"
-	"my_web/backend/internal/global"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/zerrors"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -91,7 +91,7 @@ func (s *Service) getViews(ctx context.Context) (int, error) {
 		)
 		return num, err
 	}
-	if err != global.ErrCacheMiss {
+	if err != zerrors.ErrCacheMiss {
 		logger.Error(
 			"cache get view failed",
 			zap.Error(err),

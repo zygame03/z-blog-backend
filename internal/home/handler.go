@@ -2,13 +2,11 @@ package home
 
 import (
 	"my_web/backend/internal/config"
-	"my_web/backend/internal/logger"
 	"my_web/backend/internal/response"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -46,21 +44,13 @@ func (h *Handler) loadConfigWithModule(ctx *gin.Context) {
 	conf := config.NewConfigByModule(module)
 	err := ctx.ShouldBindBodyWithJSON(conf)
 	if err != nil {
-		logger.Error(
-			"invalid type",
-			zap.String("module", module),
-		)
-		h.Fail(ctx, response.ErrConfigType)
+		h.Fail(ctx, err)
 		return
 	}
 
 	err = config.SetConfigWithModule(module, conf)
 	if err != nil {
-		logger.Error(
-			"invalid type",
-			zap.String("module", module),
-		)
-		h.Fail(ctx, response.ErrConfigType)
+		h.Fail(ctx, err)
 		return
 	}
 	h.Success(ctx, "")

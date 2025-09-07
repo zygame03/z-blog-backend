@@ -2,7 +2,9 @@ package article
 
 import (
 	"context"
+	"errors"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/zerrors"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -57,9 +59,9 @@ func (s *ArticleService) RegisterCron(cron *cron.Cron) {
 	}
 
 	logger.Info(
-		"add func successfully",
-		zap.Int("interval", int(s.cfg().SyncInterval)),
-		zap.String("func", "syncArticleViews"),
+		"cron job registered",
+		zap.String("job", "syncArticleViews"),
+		zap.Duration("interval", s.cfg().SyncInterval),
 	)
 }
 
@@ -74,76 +76,50 @@ func (s *ArticleService) syncArticleViews() {
 		return
 	}
 
+	var (
+		total   = len(ids)
+		success int
+		failed  int
+	)
 	for _, id := range ids {
 		num, err := s.rdb.getViewUV(ctx, id)
 		if err != nil {
-			logger.Error(
-				"get view uv from cache failed",
-				zap.Int("id", id),
-				zap.Error(err),
-			)
+			failed++
 			continue
 		}
 		if num == 0 {
+			success++
 			continue
 		}
-
 		err = s.rdb.delViewUV(ctx, id)
 		if err != nil {
-			logger.Error(
-				"delete view uv from cache failed",
-				zap.Int("id", id),
-				zap.Error(err),
-			)
+			failed++
 			continue
 		}
-
-		if err := s.db.incrementViews(ctx, id, num); err != nil {
-			logger.Error(
-				"increment article views failed",
-				zap.Int("id", id),
-				zap.Int64("increment", num),
-				zap.Error(err),
-			)
+		err = s.db.incrementViews(ctx, id, num)
+		if err != nil {
+			failed++
+			continue
 		}
+		success++
 	}
+
+	logger.Info(
+		"sync article views done",
+		zap.Int("total", total),
+		zap.Int("success", success),
+		zap.Int("failed", failed),
+	)
 }
 
 func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
 	articles, total, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
 	if err == nil {
-		logger.Info(
-			"get articles by page from cache",
-			zap.Int("page", page),
-			zap.Int("page_size", pageSize),
-		)
 		return articles, total, nil
-	}
-
-	if err != ErrCacheMiss {
-		logger.Error(
-			"get articles by page from cache failed",
-			zap.Int("page", page),
-			zap.Int("page_size", pageSize),
-			zap.Error(err),
-		)
-	} else {
-		logger.Info(
-			"cache miss for articles by page",
-			zap.Int("page", page),
-			zap.Int("page_size", pageSize),
-			zap.Error(err),
-		)
 	}
 
 	articles, total, err = s.db.listByPage(ctx, page, pageSize)
 	if err != nil {
-		logger.Error(
-			"repo get articles by page failed",
-			zap.Int("page", page),
-			zap.Int("page_size", pageSize),
-			zap.Error(err),
-		)
 		return nil, 0, err
 	}
 
@@ -154,32 +130,14 @@ func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize i
 func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
 	articles, err := s.rdb.getArticlesByPopular(ctx, limit)
 	if err == nil {
-		logger.Info(
-			"get articles by popular from cache",
-			zap.Int("limit", limit),
-		)
 		return articles, nil
 	}
-
-	if err == ErrCacheMiss {
-		logger.Info(
-			"cache miss for articles by popular",
-			zap.Int("limit", limit),
-		)
-	} else {
-		logger.Error(
-			"get articles by popular from cache failed",
-			zap.Int("limit", limit),
-			zap.Error(err),
-		)
+	if !errors.Is(err, zerrors.ErrCacheMiss) {
+		// 这里可能需要输出缓存异常日志
 	}
 
 	articles, err = s.db.listPopular(ctx, limit)
 	if err != nil {
-		logger.Error(
-			"repo get articles by popular failed",
-			zap.Error(err),
-		)
 		return nil, err
 	}
 
@@ -190,37 +148,15 @@ func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([
 func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
 	article, err := s.rdb.getArticleByID(ctx, id)
 	if err == nil {
-		logger.Info(
-			"get article by id from cache",
-			zap.Int("id", id),
-			zap.String("user_id", userID),
-		)
 		s.rdb.addViewUV(ctx, id, userID)
 		return article, nil
 	}
-
-	if err != ErrCacheMiss {
-		logger.Error(
-			"get article by id from cache failed",
-			zap.Int("id", id),
-			zap.String("user_id", userID),
-			zap.Error(err),
-		)
-	} else {
-		logger.Info(
-			"cache miss for article by id",
-			zap.Int("id", id),
-			zap.String("user_id", userID),
-		)
+	if !errors.Is(err, zerrors.ErrCacheMiss) {
+		// 这里可能需要输出缓存异常日志
 	}
 
 	article, err = s.db.getByID(ctx, id)
 	if err != nil {
-		logger.Error(
-			"repo get article by id failed",
-			zap.Int("id", id),
-			zap.Error(err),
-		)
 		return nil, err
 	}
 

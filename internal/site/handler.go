@@ -26,7 +26,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) getIntro(ctx *gin.Context) {
 	data, err := h.service.getIntro(ctx)
 	if err != nil {
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 	h.Success(ctx, data)
@@ -40,7 +40,7 @@ func (h *Handler) getAnnouncement(ctx *gin.Context) {
 	}
 
 	if err != nil {
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 	h.Success(ctx, vo)

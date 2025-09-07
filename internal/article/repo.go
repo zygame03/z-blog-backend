@@ -3,9 +3,8 @@ package article
 import (
 	"context"
 	"fmt"
-	"my_web/backend/internal/logger"
+	"my_web/backend/internal/zerrors"
 
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -22,42 +21,49 @@ func newRepo(db *gorm.DB) *repo {
 func (r *repo) listIDs(ctx context.Context) ([]int, error) {
 	ids := []int{}
 
-	result := r.db.
+	err := r.db.
 		WithContext(ctx).
 		Model(&Article{}).
 		Select("id").
 		Where("is_delete = false AND status = ?", ArticlePublic).
-		Pluck("id", &ids)
-
-	if result.Error != nil {
-		return nil, fmt.Errorf("db get all article ids failed: %w", result.Error)
+		Pluck("id", &ids).
+		Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, zerrors.ErrArticleNotFound
 	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+
 	return ids, nil
 }
 
 // listByPage
 func (r *repo) listByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
-	var articles []ArticleSummary
 	var total int64
 
-	result := r.db.
+	// 获取总数
+	err := r.db.
 		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
-		Count(&total)
-	if result.Error != nil {
-		return nil, 0, result.Error
+		Count(&total).
+		Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
-	result = r.db.
+	var articles []ArticleSummary
+	err = r.db.
 		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
-		Find(&articles)
-	if result.Error != nil {
-		return nil, 0, result.Error
+		Find(&articles).
+		Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
 	return articles, int(total), nil
@@ -67,12 +73,16 @@ func (r *repo) listByPage(ctx context.Context, page, pageSize int) ([]ArticleSum
 func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
 	var article Article
 
-	result := r.db.
+	err := r.db.
 		WithContext(ctx).
 		Where("id = ? AND is_delete = false AND status = ?", id, ArticlePublic).
-		First(&article)
-	if result.Error != nil {
-		return &article, fmt.Errorf("db get article by id failed: %w", result.Error)
+		First(&article).
+		Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, zerrors.ErrArticleNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
 	return &article, nil
@@ -82,15 +92,16 @@ func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
 func (r *repo) listPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
 	var articles []ArticleSummary
 
-	result := r.db.
+	err := r.db.
 		WithContext(ctx).
 		Model(&Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Order("views DESC").
 		Limit(limit).
-		Find(&articles)
-	if result.Error != nil {
-		return nil, fmt.Errorf("db get articles by popular failed: %w", result.Error)
+		Find(&articles).
+		Error
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
 	return articles, nil
@@ -98,13 +109,14 @@ func (r *repo) listPopular(ctx context.Context, limit int) ([]ArticleSummary, er
 
 // incrementViews 增加文章的 views
 func (r *repo) incrementViews(ctx context.Context, id int, increment int64) error {
-	result := r.db.
+	err := r.db.
 		WithContext(ctx).
 		Model(&Article{}).
 		Where("id = ?", id).
-		UpdateColumn("views", gorm.Expr("views + ?", increment))
-	if result.Error != nil {
-		return fmt.Errorf("db increment article views failed: %w", result.Error)
+		UpdateColumn("views", gorm.Expr("views + ?", increment)).
+		Error
+	if err != nil {
+		return fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
 	return nil
@@ -113,12 +125,7 @@ func (r *repo) incrementViews(ctx context.Context, id int, increment int64) erro
 func (r *repo) save(ctx context.Context, article *Article) (int, error) {
 	err := r.db.WithContext(ctx).Save(article).Error
 	if err != nil {
-		logger.Error(
-			"save article failed",
-			zap.Int("id", article.ID),
-			zap.Error(err),
-		)
-		return 0, err
+		return 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 
 	return article.ID, nil
@@ -132,7 +139,7 @@ func (r *repo) delete(ctx context.Context, id int) error {
 		UpdateColumn("is_delete", false).
 		Error
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
 	return nil
 }

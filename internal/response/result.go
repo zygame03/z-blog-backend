@@ -47,16 +47,13 @@ func GetMsg(code int) string {
 }
 
 var (
-	SuccessResult = RegisterResult(SUCCESS, "SUCCESS")
-	FailResult    = RegisterResult(FAIL, "FAIL")
-)
+	SuccessResult = RegisterResult(0, "成功")
+	ErrDefault    = RegisterResult(1000, "未知错误")
+	ErrRequest    = RegisterResult(1001, "请求参数错误")
+	ErrDBOp       = RegisterResult(1002, "数据库操作异常")
 
-var (
-	ErrRequest = RegisterResult(1001, "请求参数错误")
-	ErrDBOp    = RegisterResult(1002, "数据库操作异常")
-
-	ErrPassword  = RegisterResult(2001, "密码错误")
-	ErrUserExist = RegisterResult(2002, "用户不存在")
+	ErrPassword     = RegisterResult(2001, "密码错误")
+	ErrUserNotFound = RegisterResult(2002, "用户不存在")
 
 	ErrConfigType = RegisterResult(5001, "配置类型异常")
 )

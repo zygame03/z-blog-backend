@@ -1,13 +1,11 @@
 package article
 
 import (
-	"my_web/backend/internal/logger"
 	"my_web/backend/internal/middleware"
 	"my_web/backend/internal/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -57,33 +55,19 @@ type ArticleListByPageResponse struct {
 func (h *Handler) getArticles(ctx *gin.Context) {
 	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	if err != nil {
-		logger.Error(
-			"parse query failed",
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrRequest)
+		h.Fail(ctx, err)
 		return
 	}
 
 	pageSize, err := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 	if err != nil {
-		logger.Error(
-			"parse query failed",
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrRequest)
+		h.Fail(ctx, err)
 		return
 	}
 
 	articles, total, err := h.service.getArticlesByPage(ctx.Request.Context(), page, pageSize)
 	if err != nil {
-		logger.Error(
-			"get article failed",
-			zap.Int("page", page),
-			zap.Int("pagesize", pageSize),
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 
@@ -112,11 +96,7 @@ type ArticleListResponse struct {
 func (h *Handler) getHotArticles(ctx *gin.Context) {
 	data, err := h.service.getArticlesByPopular(ctx, 10)
 	if err != nil {
-		logger.Error(
-			"get article failed",
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 
@@ -141,11 +121,7 @@ type ArticleDetailResponse struct {
 func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		logger.Error(
-			"request invalid id",
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrRequest)
+		h.Fail(ctx, err)
 		return
 	}
 
@@ -157,12 +133,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 
 	data, err := h.service.getArticleByID(ctx.Request.Context(), id, userID)
 	if err != nil {
-		logger.Error(
-			"get article failed",
-			zap.Int("id", id),
-			zap.Error(err),
-		)
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 
@@ -174,13 +145,13 @@ func (h *Handler) saveArticle(ctx *gin.Context) {
 
 	err := ctx.ShouldBindJSON(&article)
 	if err != nil {
-		h.Fail(ctx, response.ErrRequest)
+		h.Fail(ctx, err)
 		return
 	}
 
 	id, err := h.service.save(ctx, &article)
 	if err != nil {
-		h.Fail(ctx, response.ErrDBOp)
+		h.Fail(ctx, err)
 		return
 	}
 	h.Success(ctx, id)

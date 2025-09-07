@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -10,11 +11,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtKey = []byte("your_secret_key")
+var jwtKey []byte
 
 func SetJWTKey(key string) {
 	if key == "" {
-		return
+		key = os.Getenv("JWT_KEY")
 	}
 	jwtKey = []byte(key)
 }
@@ -32,8 +33,8 @@ func GenerateToken(userID int, username string, ttl time.Duration) (string, erro
 
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从头部取出token
-		// Authorization: Bearer yourtoken...
+		// 从 header 中拿 token
+		// Authorization: Bearer yourtoken
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -43,7 +44,6 @@ func JWTAuth() gin.HandlerFunc {
 		}
 		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 
-		// jwtkey解token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			return jwtKey, nil
 		})
@@ -52,12 +52,18 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 从存的数中拿信息
+		// 先检查 token 是否过期
+		// 再将 user_id 和 username 写入上下文
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if ok {
-			id, ok := claims["user_id"].(float64)
+			if time.Now().Unix() > claims["exp"].(int64) {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+				return
+			}
+
+			id, ok := claims["user_id"].(int)
 			if ok {
-				c.Set("userID", strconv.Itoa(int(id)))
+				c.Set("userID", strconv.Itoa(id))
 			}
 			username, ok := claims["username"].(string)
 			if ok {

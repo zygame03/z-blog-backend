@@ -1,6 +1,8 @@
 package response
 
 import (
+	"errors"
+	"my_web/backend/internal/zerrors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +15,8 @@ func (h *BaseHandler) Success(c *gin.Context, data any) {
 	ReturnSuccess(c, data)
 }
 
-func (h *BaseHandler) Fail(c *gin.Context, r Result) {
-	ReturnResponse(c, r, "")
+func (h *BaseHandler) Fail(c *gin.Context, err error) {
+	ReturnResponse(c, mapError(err), "")
 }
 
 func (h *BaseHandler) Response(c *gin.Context, r Result, data any) {
@@ -52,4 +54,14 @@ func ReturnSuccess(c *gin.Context, data any) {
 
 func ReturnFail(c *gin.Context, r Result) {
 	ReturnResponse(c, r, "")
+}
+
+// error到result的映射
+func mapError(err error) Result {
+	switch {
+	case errors.Is(err, zerrors.ErrUserNotFound):
+		return ErrUserNotFound
+	default:
+		return ErrDefault
+	}
 }

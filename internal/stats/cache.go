@@ -2,8 +2,8 @@ package stats
 
 import (
 	"context"
-	"my_web/backend/internal/global"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/zerrors"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
@@ -28,7 +28,7 @@ func (c *cache) getView(ctx context.Context) (int, error) {
 		logger.Info(
 			"cache miss",
 		)
-		return -1, global.ErrCacheMiss
+		return -1, zerrors.ErrCacheMiss
 	}
 	if err != nil {
 		logger.Error(
