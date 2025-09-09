@@ -29,7 +29,7 @@ func (r *repo) listIDs(ctx context.Context) ([]int, error) {
 		Pluck("id", &ids).
 		Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, zerrors.ErrArticleNotFound
+		return nil, zerrors.ArticleNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
@@ -79,10 +79,10 @@ func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
 		First(&article).
 		Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, zerrors.ErrArticleNotFound
+		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+		return nil, fmt.Errorf("repo get article by id failed: %w", err)
 	}
 
 	return &article, nil

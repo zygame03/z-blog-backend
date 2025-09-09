@@ -1,11 +1,11 @@
-package response
+package http
 
 import (
-	"errors"
-	"my_web/backend/internal/zerrors"
+	"my_web/backend/internal/logger"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // BaseHandler 提供通用的响应方法，可以被具体 Handler 嵌入
@@ -16,6 +16,10 @@ func (h *BaseHandler) Success(c *gin.Context, data any) {
 }
 
 func (h *BaseHandler) Fail(c *gin.Context, err error) {
+	logger.Error(
+		"failed",
+		zap.Error(err),
+	)
 	ReturnResponse(c, mapError(err), "")
 }
 
@@ -59,8 +63,6 @@ func ReturnFail(c *gin.Context, r Result) {
 // error到result的映射
 func mapError(err error) Result {
 	switch {
-	case errors.Is(err, zerrors.ErrUserNotFound):
-		return ErrUserNotFound
 	default:
 		return ErrDefault
 	}

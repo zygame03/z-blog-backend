@@ -26,7 +26,7 @@ func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Ar
 	key := articleByPageKey(page, pageSize)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, 0, zerrors.ErrCacheMiss
+		return nil, 0, zerrors.CacheMiss
 	}
 	if err != nil {
 		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
@@ -40,7 +40,7 @@ func (c *cache) getArticlesByPage(ctx context.Context, page, pageSize int) ([]Ar
 	totalKey := articleTotalKey()
 	totalData, err := c.rdb.Get(ctx, totalKey).Result()
 	if err == redis.Nil {
-		return articles, 0, zerrors.ErrCacheMiss
+		return articles, 0, zerrors.CacheMiss
 	}
 	if err != nil {
 		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
@@ -78,7 +78,7 @@ func (c *cache) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	key := articleByIDKey(id)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, zerrors.ErrCacheMiss
+		return nil, zerrors.CacheMiss
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)
@@ -111,7 +111,7 @@ func (c *cache) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleS
 
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return nil, zerrors.ErrCacheMiss
+		return nil, zerrors.CacheMiss
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", zerrors.ErrCacheOperation, err)

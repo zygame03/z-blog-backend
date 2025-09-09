@@ -1,7 +1,7 @@
 package article
 
 import (
-	"my_web/backend/internal/response"
+	"my_web/backend/internal/http"
 	"time"
 )
 
@@ -10,11 +10,11 @@ type Config struct {
 	CacheBaseTTL time.Duration `mapstructure:"cache_base_ttl"`
 }
 
-func Schema() *response.ModuleSchema {
-	return &response.ModuleSchema{
+func Schema() *http.ModuleSchema {
+	return &http.ModuleSchema{
 		Name: "article",
-		Fields: []*response.FieldSchema{
-			response.NewNumberSchema(
+		Fields: []*http.FieldSchema{
+			http.NewNumberSchema(
 				"syncInterval",
 				"sync interval",
 				"",
@@ -22,7 +22,7 @@ func Schema() *response.ModuleSchema {
 				0,
 				1,
 			),
-			response.NewNumberSchema(
+			http.NewNumberSchema(
 				"cacheBaseTTL",
 				"cache base ttl",
 				"",
@@ -35,5 +35,5 @@ func Schema() *response.ModuleSchema {
 }
 
 func init() {
-	response.Register(Schema())
+	http.Register(Schema())
 }

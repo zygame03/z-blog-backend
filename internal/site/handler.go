@@ -1,13 +1,13 @@
 package site
 
 import (
-	"my_web/backend/internal/response"
+	"my_web/backend/internal/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	response.BaseHandler
+	http.BaseHandler
 	service *Service
 }
 

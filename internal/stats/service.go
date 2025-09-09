@@ -91,7 +91,7 @@ func (s *Service) getViews(ctx context.Context) (int, error) {
 		)
 		return num, err
 	}
-	if err != zerrors.ErrCacheMiss {
+	if err != zerrors.CacheMiss {
 		logger.Error(
 			"cache get view failed",
 			zap.Error(err),
