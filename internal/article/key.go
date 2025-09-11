@@ -4,29 +4,33 @@ import (
 	"fmt"
 )
 
+func commentsByIdKey(id int, page, pageSize int) string {
+	return fmt.Sprintf("blog:article:comment:%d:page:%d:pageSize:%d", id, page, pageSize)
+}
+
 func articleTotalKey() string {
-	return "Article:Total"
+	return "blog:article:total"
 }
 
 func articleByIDKey(id int) string {
-	return fmt.Sprintf("Article:ByID:%d", id)
+	return fmt.Sprintf("blog:article:detail:%d", id)
 }
 
 func articleByPageKey(page, pageSize int) string {
-	return fmt.Sprintf("Article:ByPage:%d:%d", page, pageSize)
+	return fmt.Sprintf("blog:article:page:%d:%d", page, pageSize)
 }
 
 func articleByPopularKey(limit int) string {
-	return fmt.Sprintf("Article:ByPopular:%d", limit)
+	return fmt.Sprintf("blog:article:popular:%d", limit)
 }
 
 func articleActiveViewIDsKey() string {
-	return "Article:View:ActiveIDs"
+	return "blog:article:view:active"
 }
 
 func articleViewKey(id int) string {
 	if id == -1 {
-		return "Article:view:UV:*"
+		return "blog:article:view:UV:*"
 	}
-	return fmt.Sprintf("Article:View:UV:%d", id)
+	return fmt.Sprintf("blog:article:view:UV:%d", id)
 }

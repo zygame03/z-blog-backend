@@ -25,21 +25,18 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 		r.GET("", h.getArticles)
 		r.GET("/hot_articles", h.getHotArticles)
 		r.GET("/:id", h.getArticleDetail)
+		r.POST("/comment", h.sendComment)
 
 		r.Use(middleware.JWTAuth())
 		r.POST("", h.saveArticle)
+		r.POST("/comment/review", h.reviewComment)
 	}
 }
 
 type ArticleListByPageResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    struct {
-		Page  int              `json:"page"`
-		Size  int              `json:"size"`
-		Total int              `json:"total"`
-		Data  []ArticleSummary `json:"data"`
-	} `json:"data"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    ArticlePageVO `json:"data"`
 }
 
 // 获取文章列表
@@ -65,18 +62,13 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 		return
 	}
 
-	articles, total, err := h.service.getArticlesByPage(ctx.Request.Context(), page, pageSize)
+	data, err := h.service.getArticlesByPage(ctx.Request.Context(), page, pageSize)
 	if err != nil {
 		h.Fail(ctx, err)
 		return
 	}
 
-	h.Success(ctx, http.PageResult[ArticleSummary]{
-		Page:  page,
-		Size:  pageSize,
-		Total: total,
-		Data:  articles,
-	})
+	h.Success(ctx, data)
 }
 
 type ArticleListResponse struct {
@@ -104,9 +96,9 @@ func (h *Handler) getHotArticles(ctx *gin.Context) {
 }
 
 type ArticleDetailResponse struct {
-	Code    int     `json:"code"`
-	Message string  `json:"message"`
-	Data    Article `json:"data"`
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    ArticleDetailVO `json:"data"`
 }
 
 // 获取文章详情（带正文）
@@ -131,13 +123,15 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 		userID = ctx.ClientIP()
 	}
 
-	data, err := h.service.getArticleByID(ctx.Request.Context(), id, userID)
+	// 获取文章和首屏评论
+	data, err := h.service.getArticleDetailWithComments(ctx.Request.Context(), id, userID, 1, 100)
 	if err != nil {
 		h.Fail(ctx, err)
 		return
 	}
 	if data == nil {
 		h.Response(ctx, http.ArticleNotFound, "")
+		return
 	}
 
 	h.Success(ctx, data)
@@ -158,4 +152,50 @@ func (h *Handler) saveArticle(ctx *gin.Context) {
 		return
 	}
 	h.Success(ctx, id)
+}
+
+func (h *Handler) sendComment(ctx *gin.Context) {
+	var req struct {
+		ArticleID int    `json:"article_id"`
+		Username  string `json:"username"`
+		Content   string `json:"content"`
+	}
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		h.Fail(ctx, err)
+		return
+	}
+
+	id, err := h.service.sendComment(ctx.Request.Context(), SendCommentReq{
+		ArticleID: req.ArticleID,
+		Username:  req.Username,
+		UserIP:    ctx.ClientIP(),
+		Content:   req.Content,
+	})
+	if err != nil {
+		h.Fail(ctx, err)
+		return
+	}
+
+	h.Success(ctx, id)
+}
+
+func (h *Handler) reviewComment(ctx *gin.Context) {
+	var req struct {
+		ID     int `json:"id"`
+		Status int `json:"Status"`
+	}
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		h.Fail(ctx, err)
+		return
+	}
+
+	err = h.service.reviewComment(ctx, req.ID, CommentStatus(req.Status))
+	if err != nil {
+		h.Fail(ctx, err)
+		return
+	}
+
+	h.Success(ctx, "")
 }
