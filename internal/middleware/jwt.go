@@ -56,7 +56,7 @@ func JWTAuth() gin.HandlerFunc {
 		// 再将 user_id 和 username 写入上下文
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if ok {
-			if time.Now().Unix() > claims["exp"].(int64) {
+			if time.Now().Unix() > int64(claims["exp"].(float64)) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 				return
 			}

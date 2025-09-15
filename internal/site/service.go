@@ -69,6 +69,7 @@ type DanmakuVO struct {
 }
 
 type DanmakuAdminVO struct {
+	ID        int           `json:"id"`
 	CreatedAt time.Time     `json:"created_at"`
 	SenderID  string        `json:"sender_id"`
 	Content   string        `json:"content"`
@@ -114,6 +115,7 @@ func (s *Service) listDanmakuAdmin(ctx context.Context) ([]DanmakuAdminVO, error
 	res := make([]DanmakuAdminVO, 0, len(list))
 	for _, v := range list {
 		res = append(res, DanmakuAdminVO{
+			ID:        v.ID,
 			CreatedAt: v.CreatedAt,
 			Content:   v.Content,
 			SenderID:  v.SenderID,
