@@ -3,95 +3,105 @@ package site
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"my_web/backend/internal/logger"
+	"fmt"
+	"my_web/backend/internal/zerrors"
+	"time"
 
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
-)
-
-var (
-	ErrCacheMiss = errors.New("cache miss")
 )
 
 type cache struct {
-	rdb  *redis.Client
-	conf func() *Config
+	rdb *redis.Client
+	cfg func() *Config
 }
 
-func newCache(rdb *redis.Client, conf func() *Config) *cache {
+func newCache(rdb *redis.Client, cfg func() *Config) *cache {
 	return &cache{
-		rdb:  rdb,
-		conf: conf,
+		rdb: rdb,
+		cfg: cfg,
 	}
+}
+
+func (c *cache) get(ctx context.Context, key string, dest any) error {
+	data, err := c.rdb.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return zerrors.CacheMiss
+	}
+	if err != nil {
+		return fmt.Errorf("cache get failed: %w", err)
+	}
+
+	if err := json.Unmarshal([]byte(data), dest); err != nil {
+		return fmt.Errorf("cache unmarshal failed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *cache) set(ctx context.Context, key string, value any, ttl time.Duration) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("cache marshal failed: %w", err)
+	}
+
+	if err := c.rdb.Set(ctx, key, data, ttl).Err(); err != nil {
+		return fmt.Errorf("cache set failed: %w", err)
+	}
+
+	return nil
 }
 
 // get intro from cache
 func (c *cache) getIntro(ctx context.Context) (string, error) {
 	key := getIntroKey()
 
-	data, err := c.rdb.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return data, ErrCacheMiss
-	}
-
+	var intro string
+	err := c.get(ctx, key, &intro)
 	if err != nil {
 		return "", err
 	}
 
-	return data, nil
+	return intro, nil
 }
 
 // set intro to cache
 func (c *cache) setIntro(ctx context.Context, intro string) error {
 	key := getIntroKey()
 
-	err := c.rdb.Set(ctx, key, intro, c.conf().CacheBaseTTL).Err()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.set(ctx, key, intro, c.cfg().CacheBaseTTL)
 }
 
-func (c *cache) getAnnouncement(ctx context.Context) ([]*announcementBO, error) {
-	key := getAllAnnouncementKey()
-
-	data, err := c.rdb.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return nil, ErrCacheMiss
-	}
-
+func (c *cache) listAnnouncements(ctx context.Context) ([]Announcement, error) {
+	key := announcementKey()
+	var data []Announcement
+	err := c.get(ctx, key, &data)
 	if err != nil {
 		return nil, err
 	}
 
-	var announcement []*announcementBO
-	err = json.Unmarshal([]byte(data), &announcement)
+	return data, nil
+}
+
+func (c *cache) setAnnouncement(ctx context.Context, data []Announcement) error {
+	key := announcementKey()
+	return c.set(ctx, key, data, c.cfg().CacheBaseTTL)
+}
+
+func (c *cache) getDanmaku(ctx context.Context) ([]DanmakuVO, error) {
+	var list []DanmakuVO
+	key := danmakuKey()
+	err := c.get(ctx, key, &list)
 	if err != nil {
 		return nil, err
 	}
-
-	return announcement, nil
+	return list, nil
 }
 
-func (c *cache) setAnnouncement(ctx context.Context, data []*announcementBO) error {
-	pipe := c.rdb.Pipeline()
-
-	for _, v := range data {
-		err := pipe.Set(ctx, getAnnouncementKey(v.Id), v.Text, c.conf().CacheBaseTTL).Err()
-		if err != nil {
-			continue
-		}
-	}
-	_, err := pipe.Exec(ctx)
+func (c *cache) setDanmaku(ctx context.Context, danmaku []DanmakuVO) error {
+	key := danmakuKey()
+	err := c.set(ctx, key, danmaku, c.cfg().CacheBaseTTL)
 	if err != nil {
-		logger.Error(
-			"cache execute pipeline commands failed",
-			zap.Error(err),
-		)
 		return err
 	}
-
 	return nil
 }

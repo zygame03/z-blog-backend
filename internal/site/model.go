@@ -5,17 +5,31 @@ import (
 	"time"
 )
 
-// k-v type model
-type WebsiteData struct {
+type Intro struct {
 	global.BaseModel
-	Key   string
-	Value string
+	Content string `json:"content"`
 }
 
 // announcement
 type Announcement struct {
 	global.BaseModel
 	Text      string    `json:"text"`
-	OnlineAt  time.Time `josn:"online_at"`
+	OnlineAt  time.Time `json:"online_at"`
 	OfflineAt time.Time `json:"offline_at"`
+}
+
+type DanmakuStatus int
+
+const (
+	Pending DanmakuStatus = iota
+	Approved
+	Rejected
+)
+
+type Danmaku struct {
+	global.BaseModel
+	Content  string        `json:"content"`
+	SenderID string        `json:"sender_id"`
+	IP       string        `json:"ip"`
+	Status   DanmakuStatus `json:"status"`
 }

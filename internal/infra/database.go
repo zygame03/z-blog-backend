@@ -45,9 +45,10 @@ func InitDatabase(conf *DatabaseConfig) (*gorm.DB, error) {
 			&article.Article{},
 			&user.User{},
 			&user.Profile{},
-			&site.WebsiteData{},
+			&site.Intro{},
 			&stats.NumStats{},
 			&site.Announcement{},
+			&site.Danmaku{},
 		)
 		if err != nil {
 			logger.Info(

@@ -3,13 +3,17 @@ package site
 import "fmt"
 
 func getIntroKey() string {
-	return "websiteData:intro"
+	return "blog:site:intro"
 }
 
-func getAllAnnouncementKey() string {
-	return "site:announcement:*"
+func announcementKey() string {
+	return "blog:site:announcement:all"
 }
 
 func getAnnouncementKey(id int) string {
-	return fmt.Sprintf("site:announcement:%d", id)
+	return fmt.Sprintf("blog:site:announcement:%d", id)
+}
+
+func danmakuKey() string {
+	return "blog:site:danmaku"
 }
