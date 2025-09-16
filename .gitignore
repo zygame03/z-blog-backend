@@ -2,3 +2,6 @@ config/config.json
 zBlog
 *.log
 .env
+
+*.py
+*.txt

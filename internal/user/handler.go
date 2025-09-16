@@ -1,7 +1,7 @@
 package user
 
 import (
-	"my_web/backend/internal/response"
+	"my_web/backend/internal/http"
 	"my_web/backend/internal/zerrors"
 	"strconv"
 
@@ -9,7 +9,7 @@ import (
 )
 
 type Handler struct {
-	response.BaseHandler
+	http.BaseHandler
 	serv *Service
 }
 

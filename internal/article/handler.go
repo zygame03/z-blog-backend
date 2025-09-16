@@ -1,15 +1,15 @@
 package article
 
 import (
+	"my_web/backend/internal/http"
 	"my_web/backend/internal/middleware"
-	"my_web/backend/internal/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	response.BaseHandler
+	http.BaseHandler
 	service *ArticleService
 }
 
@@ -71,7 +71,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 		return
 	}
 
-	h.Success(ctx, response.PageResult[ArticleSummary]{
+	h.Success(ctx, http.PageResult[ArticleSummary]{
 		Page:  page,
 		Size:  pageSize,
 		Total: total,
@@ -135,6 +135,9 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	if err != nil {
 		h.Fail(ctx, err)
 		return
+	}
+	if data == nil {
+		h.Response(ctx, http.ArticleNotFound, "")
 	}
 
 	h.Success(ctx, data)

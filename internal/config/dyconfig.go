@@ -11,17 +11,17 @@ import (
 )
 
 type Dyconfig struct {
-	Article  article.Config `mapstructure:"article"`
-	SiteData site.Config    `mapstructure:"site_data"`
-	Stats    stats.Config   `mapstructure:"stats"`
-	User     user.Config    `mapstructure:"user"`
+	Article article.Config `mapstructure:"article"`
+	Site    site.Config    `mapstructure:"site"`
+	Stats   stats.Config   `mapstructure:"stats"`
+	User    user.Config    `mapstructure:"user"`
 }
 
 var config atomic.Value
 var configMap = map[string]func() any{
-	"article":   func() any { return &article.Config{} },
-	"site_data": func() any { return &site.Config{} },
-	"stats":     func() any { return &stats.Config{} },
+	"article": func() any { return &article.Config{} },
+	"site":    func() any { return &site.Config{} },
+	"stats":   func() any { return &stats.Config{} },
 }
 
 func SetConfigWithModule(module string, conf any) error {
@@ -51,7 +51,7 @@ func GetArticleConfig() *article.Config {
 }
 
 func GetSiteDataConfig() *site.Config {
-	return &GetConfig().SiteData
+	return &GetConfig().Site
 }
 
 func GetStatsConfig() *stats.Config {

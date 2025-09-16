@@ -28,7 +28,7 @@ func (c *cache) getView(ctx context.Context) (int, error) {
 		logger.Info(
 			"cache miss",
 		)
-		return -1, zerrors.ErrCacheMiss
+		return -1, zerrors.CacheMiss
 	}
 	if err != nil {
 		logger.Error(

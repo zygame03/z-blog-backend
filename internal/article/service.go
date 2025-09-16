@@ -3,6 +3,7 @@ package article
 import (
 	"context"
 	"errors"
+	"fmt"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/zerrors"
 
@@ -132,7 +133,7 @@ func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([
 	if err == nil {
 		return articles, nil
 	}
-	if !errors.Is(err, zerrors.ErrCacheMiss) {
+	if !errors.Is(err, zerrors.CacheMiss) {
 		// 这里可能需要输出缓存异常日志
 	}
 
@@ -151,13 +152,16 @@ func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID stri
 		s.rdb.addViewUV(ctx, id, userID)
 		return article, nil
 	}
-	if !errors.Is(err, zerrors.ErrCacheMiss) {
+	if !errors.Is(err, zerrors.CacheMiss) {
 		// 这里可能需要输出缓存异常日志
 	}
 
 	article, err = s.db.getByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+	if article == nil {
+		return nil, nil
 	}
 
 	s.rdb.addViewUV(ctx, id, userID)

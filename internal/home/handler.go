@@ -2,7 +2,7 @@ package home
 
 import (
 	"my_web/backend/internal/config"
-	"my_web/backend/internal/response"
+	"my_web/backend/internal/http"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -10,7 +10,7 @@ import (
 )
 
 type Handler struct {
-	response.BaseHandler
+	http.BaseHandler
 	serv *Service
 }
 
@@ -32,11 +32,11 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 
 func (h *Handler) getSchemaWithModule(ctx *gin.Context) {
 	module := ctx.Param("name")
-	h.Success(ctx, response.GetSchemaByModule(module))
+	h.Success(ctx, http.GetSchemaByModule(module))
 }
 
 func (h *Handler) getSchemaAll(ctx *gin.Context) {
-	h.Success(ctx, response.GetSchemaAll())
+	h.Success(ctx, http.GetSchemaAll())
 }
 
 func (h *Handler) loadConfigWithModule(ctx *gin.Context) {
