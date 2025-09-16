@@ -11,7 +11,7 @@ type Config struct {
 
 func Schema() *http.ModuleSchema {
 	return &http.ModuleSchema{
-		Name: "website_data",
+		Name: "site",
 		Fields: []*http.FieldSchema{
 			http.NewNumberSchema(
 				"cache_base_ttl",
