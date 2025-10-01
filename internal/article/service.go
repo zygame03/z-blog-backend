@@ -186,7 +186,7 @@ func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID stri
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
-	if article == nil {
+	if data == nil {
 		return nil, nil
 	}
 
