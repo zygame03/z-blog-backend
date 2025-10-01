@@ -39,38 +39,38 @@ func (r *repo) listIDs(ctx context.Context) ([]int, error) {
 }
 
 // listByPage
-func (r *repo) listByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
-	var total int64
-
-	// 获取总数
+func (r *repo) listByPage(ctx context.Context, page, pageSize int) (*ArticlePageVO, error) {
+	var data = ArticlePageVO{
+		Page:     page,
+		PageSize: pageSize,
+	}
 	err := r.db.
 		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
-		Count(&total).
+		Count(&data.Total).
 		Error
 	if err != nil {
-		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+		return nil, fmt.Errorf("repo get total failed: %w", err)
 	}
 
-	var articles []ArticleSummary
 	err = r.db.
 		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
-		Find(&articles).
+		Find(&data.List).
 		Error
 	if err != nil {
-		return nil, 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+		return nil, fmt.Errorf("repo list articles by page failed: %w", err)
 	}
 
-	return articles, int(total), nil
+	return &data, nil
 }
 
-// getByID
-func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
+// getArticleByID
+func (r *repo) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	var article Article
 
 	err := r.db.
@@ -79,10 +79,10 @@ func (r *repo) getByID(ctx context.Context, id int) (*Article, error) {
 		First(&article).
 		Error
 	if err == gorm.ErrRecordNotFound {
-		return nil, nil
+		return nil, zerrors.ArticleNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("repo get article by id failed: %w", err)
+		return &article, fmt.Errorf("repo get article by id failed: %w", err)
 	}
 
 	return &article, nil
@@ -140,6 +140,64 @@ func (r *repo) delete(ctx context.Context, id int) error {
 		Error
 	if err != nil {
 		return fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+	return nil
+}
+
+type CommentQuery struct {
+	status   *CommentStatus // nil = 不过滤
+	id       int
+	page     int
+	pageSize int
+}
+
+func (r *repo) listComment(ctx context.Context, query CommentQuery) (*CommentPageVO, error) {
+	var comment = CommentPageVO{
+		Page:     query.page,
+		PageSize: query.pageSize,
+	}
+	db := r.db.WithContext(ctx)
+	if query.status != nil {
+		db = db.Where("status = ? AND article_id = ?", *query.status, query.id)
+	}
+
+	err := db.Count(&comment.Total).Error
+	if err != nil {
+		return nil, fmt.Errorf("repo get comments total faild: %w", zerrors.ErrDBOperation)
+	}
+
+	err = db.
+		Offset((query.page - 1) * query.pageSize).
+		Limit(query.pageSize).
+		Find(&comment.Comments).
+		Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, zerrors.CommentNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("repo list comments failed: %w", err)
+	}
+
+	return &comment, nil
+}
+
+func (r *repo) saveComment(ctx context.Context, comment *ArticleComment) (int, error) {
+	err := r.db.WithContext(ctx).Save(comment).Error
+	if err != nil {
+		return 0, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+
+	return comment.ID, nil
+}
+
+func (r *repo) updateCommentStatus(ctx context.Context, id int, status CommentStatus) error {
+	err := r.db.
+		WithContext(ctx).
+		Where("id = ?", id).
+		UpdateColumn("status", status).
+		Error
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/zerrors"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/robfig/cron/v3"
@@ -13,31 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
-type ArticleRepo interface {
-	listIDs(ctx context.Context) ([]int, error)
-	listByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error)
-	getByID(ctx context.Context, id int) (*Article, error)
-	listPopular(ctx context.Context, limit int) ([]ArticleSummary, error)
-	incrementViews(ctx context.Context, id int, inc int64) error
-	save(ctx context.Context, article *Article) (int, error)
-	delete(ctx context.Context, id int) error
-}
-
-type ArticleCache interface {
-	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error)
-	setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleSummary, total int) error
-	getArticleByID(ctx context.Context, id int) (*Article, error)
-	setArticleByID(ctx context.Context, id int, article *Article) error
-	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error)
-	setArticlesByPopular(ctx context.Context, limit int, articles []ArticleSummary) error
-	addViewUV(ctx context.Context, id int, userID string) error
-	getViewUV(ctx context.Context, id int) (int64, error)
-	delViewUV(ctx context.Context, id int) error
-}
-
 type ArticleService struct {
-	db  ArticleRepo
-	rdb ArticleCache
+	db  *repo
+	rdb *cache
 
 	cfg func() *Config
 }
@@ -92,12 +71,12 @@ func (s *ArticleService) syncArticleViews() {
 			success++
 			continue
 		}
-		err = s.rdb.delViewUV(ctx, id)
+		err = s.db.incrementViews(ctx, id, num)
 		if err != nil {
 			failed++
 			continue
 		}
-		err = s.db.incrementViews(ctx, id, num)
+		err = s.rdb.delViewUV(ctx, id)
 		if err != nil {
 			failed++
 			continue
@@ -113,19 +92,30 @@ func (s *ArticleService) syncArticleViews() {
 	)
 }
 
-func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleSummary, int, error) {
-	articles, total, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
+type ArticlePageVO struct {
+	List     []ArticleSummary `json:"list"`
+	Total    int64            `json:"total"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"page_size"`
+}
+
+func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) (*ArticlePageVO, error) {
+	var data *ArticlePageVO
+	data, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
 	if err == nil {
-		return articles, total, nil
+		return data, nil
+	}
+	if !errors.Is(err, zerrors.CacheMiss) {
+		// TODO
 	}
 
-	articles, total, err = s.db.listByPage(ctx, page, pageSize)
+	data, err = s.db.listByPage(ctx, page, pageSize)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	s.rdb.setArticlesByPage(ctx, page, pageSize, articles, total)
-	return articles, total, nil
+	s.rdb.setArticlesByPage(ctx, data)
+	return data, nil
 }
 
 func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleSummary, error) {
@@ -146,17 +136,53 @@ func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([
 	return articles, nil
 }
 
+type CommentVO struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	Content   string    `json:"content"`
+	Like      string    `json:"like"`
+}
+
+type CommentPageVO struct {
+	Comments []CommentVO `json:"comments"`
+	Total    int64       `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `josn:"page_size"`
+}
+
+type ArticleDetailVO struct {
+	Article  *Article       `json:"article"`
+	Comments *CommentPageVO `json:"comments"`
+}
+
+func (s *ArticleService) getArticleDetailWithComments(ctx context.Context, id int, userID string, page, pageSize int) (*ArticleDetailVO, error) {
+	var articleDetail ArticleDetailVO
+	article, err := s.getArticleByID(ctx, id, userID)
+	if err != nil {
+		return nil, err
+	}
+	articleDetail.Article = article
+
+	comments, err := s.getArticleCommentsByPage(ctx, id, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	articleDetail.Comments = comments
+
+	return &articleDetail, err
+}
+
 func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
-	article, err := s.rdb.getArticleByID(ctx, id)
+	data, err := s.rdb.getArticleByID(ctx, id)
 	if err == nil {
 		s.rdb.addViewUV(ctx, id, userID)
-		return article, nil
+		return data, err
 	}
 	if !errors.Is(err, zerrors.CacheMiss) {
 		// 这里可能需要输出缓存异常日志
 	}
 
-	article, err = s.db.getByID(ctx, id)
+	data, err = s.db.getArticleByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
 	}
@@ -164,9 +190,64 @@ func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID stri
 		return nil, nil
 	}
 
+	s.rdb.setArticleByID(ctx, id, data)
 	s.rdb.addViewUV(ctx, id, userID)
-	s.rdb.setArticleByID(ctx, id, article)
-	return article, nil
+
+	return data, nil
+}
+
+func (s *ArticleService) getArticleCommentsByPage(ctx context.Context, id int, page, pageSize int) (*CommentPageVO, error) {
+	data, err := s.rdb.getArticleComments(ctx, id, page, pageSize)
+	if err == nil {
+		return data, err
+	}
+	if !errors.Is(err, zerrors.CacheMiss) {
+	}
+
+	var status = Approved
+	data, err = s.db.listComment(ctx, CommentQuery{
+		status:   &status,
+		id:       id,
+		page:     page,
+		pageSize: pageSize,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+
+	s.rdb.setArticleComments(ctx, id, data)
+	return data, nil
+}
+
+type SendCommentReq struct {
+	ArticleID int
+	Username  string
+	UserIP    string
+	Content   string
+}
+
+func (s *ArticleService) sendComment(ctx context.Context, req SendCommentReq) (int, error) {
+	id, err := s.db.saveComment(ctx, &ArticleComment{
+		ArticleID: req.ArticleID,
+		Username:  req.Username,
+		UserID:    req.UserIP,
+		Content:   req.Content,
+		Like:      0,
+		Status:    Pending,
+	})
+	if err != nil {
+		return -1, fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+
+	return id, err
+}
+
+func (s *ArticleService) reviewComment(ctx context.Context, id int, status CommentStatus) error {
+	err := s.db.updateCommentStatus(ctx, id, status)
+	if err != nil {
+		return fmt.Errorf("%w: %v", zerrors.ErrDBOperation, err)
+	}
+	return nil
 }
 
 func (s *ArticleService) save(ctx context.Context, article *Article) (int, error) {

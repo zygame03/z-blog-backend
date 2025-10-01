@@ -15,6 +15,7 @@ var (
 	ErrParse     = errors.New("数据解析失败")
 
 	ArticleNotFound = errors.New("未找到文章")
+	CommentNotFound = errors.New("未找到评论")
 
 	UserNotFound     = errors.New("未知用户")
 	UserAlreadyExist = errors.New("用户已存在")

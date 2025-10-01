@@ -33,10 +33,21 @@ type ArticleSummary struct {
 	Cover      string `json:"cover"`      // 封面
 }
 
+type CommentStatus int
+
+const (
+	Pending CommentStatus = iota
+	Approved
+	Rejected
+)
+
 type ArticleComment struct {
 	global.BaseModel
-	Name    string `json:"name"`
-	Content string `json:"content"`
-	Reply   int    `json:"reply"`
-	Like    int    `json:"like"`
+	ArticleID int           `json:"article_id"`
+	Username  string        `json:"username"`
+	UserID    string        `josn:"user_id"`
+	Content   string        `json:"content"`
+	Reply     int           `json:"reply"` // 暂不用
+	Like      int           `json:"like"`
+	Status    CommentStatus `josn:"status"`
 }
