@@ -7,6 +7,7 @@ import (
 	"my_web/backend/internal/config"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
+	"my_web/backend/internal/logger"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +16,7 @@ import (
 )
 
 func main() {
+	logger.InitLogger()
 	// 读取配置
 	config, err := config.ReadConfig("config/", "config", "json")
 	if err != nil {

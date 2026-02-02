@@ -2,9 +2,11 @@ package article
 
 import (
 	"my_web/backend/internal/httpserver"
+	"my_web/backend/internal/logger"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -31,18 +33,32 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 func (h *Handler) getArticles(ctx *gin.Context) {
 	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	if err != nil {
+		logger.Error(
+			"parse query failed",
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrRequest, err)
 		return
 	}
 
 	pageSize, err := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
 	if err != nil {
+		logger.Error(
+			"parse query failed",
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrRequest, err)
 		return
 	}
 
 	articles, total, err := h.service.GetArticlesByPage(ctx.Request.Context(), page, pageSize)
 	if err != nil {
+		logger.Error(
+			"get article failed",
+			zap.Int("page", page),
+			zap.Int("pagesize", pageSize),
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrDBOp, err)
 		return
 	}
@@ -58,6 +74,10 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 func (h *Handler) getHotArticles(ctx *gin.Context) {
 	data, err := h.service.GetArticlesByPopular(ctx, 10)
 	if err != nil {
+		logger.Error(
+			"get article failed",
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrDBOp, err)
 		return
 	}
@@ -69,6 +89,10 @@ func (h *Handler) getHotArticles(ctx *gin.Context) {
 func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
+		logger.Error(
+			"request invalid id",
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrRequest, err)
 		return
 	}
@@ -81,6 +105,11 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 
 	data, err := h.service.GetArticleByID(ctx.Request.Context(), id, userID)
 	if err != nil {
+		logger.Error(
+			"get article failed",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
 		h.Fail(ctx, httpserver.ErrDBOp, err)
 		return
 	}

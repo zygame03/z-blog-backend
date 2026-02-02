@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"my_web/backend/internal/article"
@@ -42,6 +43,10 @@ func InitRedis(conf *config.RedisConfig) (*redis.Client, error) {
 		DB:       conf.DB,
 		Protocol: conf.Protocol,
 	})
+
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("连接 Redis 失败: %w", err)
+	}
 
 	log.Println("Redis 初始化成功")
 	return rdb, nil
