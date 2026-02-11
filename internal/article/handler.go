@@ -2,9 +2,11 @@ package article
 
 import (
 	"my_web/backend/internal/httpserver"
+	"my_web/backend/internal/logger"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -19,7 +21,7 @@ func NewHandler(s *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
-	r := e.Group("/article")
+	r := e.Group("/api/article")
 	{
 		r.GET("", h.getArticles)
 		r.GET("/hotArticles", h.getHotArticles)
@@ -27,23 +29,37 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	}
 }
 
-// 获取文章列表
+// get all articles
 func (h *Handler) getArticles(ctx *gin.Context) {
 	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		logger.Error(
+			"parse query failed",
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
 	pageSize, err := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		logger.Error(
+			"parse query failed",
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
 	articles, total, err := h.service.GetArticlesByPage(ctx.Request.Context(), page, pageSize)
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		logger.Error(
+			"get article failed",
+			zap.Int("page", page),
+			zap.Int("pagesize", pageSize),
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
@@ -55,33 +71,47 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 	})
 }
 
+// get hot articles by views
 func (h *Handler) getHotArticles(ctx *gin.Context) {
 	data, err := h.service.GetArticlesByPopular(ctx, 10)
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		logger.Error(
+			"get article failed",
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
 	h.Success(ctx, data)
 }
 
-// 获取文章详情（带正文）
+// get an article with content
 func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrRequest, err)
+		logger.Error(
+			"request invalid id",
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 
-	// 获取用户标识（优先使用用户ID，否则使用IP地址）
-	userID := ctx.GetString("userID") // 如果中间件设置了用户ID
+	// get userid
+	userID := ctx.GetString("userID") // if middleware set userud
 	if userID == "" {
-		userID = ctx.ClientIP() // 使用IP地址作为标识
+		userID = ctx.ClientIP() // use ip as userid
 	}
 
 	data, err := h.service.GetArticleByID(ctx.Request.Context(), id, userID)
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrDBOp, err)
+		logger.Error(
+			"get article failed",
+			zap.Int("id", id),
+			zap.Error(err),
+		)
+		h.Fail(ctx, httpserver.ErrDBOp)
 		return
 	}
 

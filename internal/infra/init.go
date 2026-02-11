@@ -1,10 +1,12 @@
 package infra
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
+	sitedata "my_web/backend/internal/siteData"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -26,6 +28,7 @@ func InitDatabase(conf *config.DatabaseConfig) (*gorm.DB, error) {
 	// 自动迁移
 	if err := db.AutoMigrate(
 		&article.Article{},
+		&sitedata.Sitedata{},
 	); err != nil {
 		return nil, fmt.Errorf("数据库自动迁移失败: %w", err)
 	}
@@ -42,6 +45,10 @@ func InitRedis(conf *config.RedisConfig) (*redis.Client, error) {
 		DB:       conf.DB,
 		Protocol: conf.Protocol,
 	})
+
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("连接 Redis 失败: %w", err)
+	}
 
 	log.Println("Redis 初始化成功")
 	return rdb, nil

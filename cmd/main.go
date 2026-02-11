@@ -7,6 +7,8 @@ import (
 	"my_web/backend/internal/config"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
+	"my_web/backend/internal/logger"
+	sitedata "my_web/backend/internal/siteData"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,31 +17,36 @@ import (
 )
 
 func main() {
-	// 读取配置
+	logger.InitLogger()
+	// Load config
 	config, err := config.ReadConfig("config/", "config", "json")
 	if err != nil {
 		log.Fatalf("读取配置失败: %v", err)
 	}
 
-	// 初始化应用依赖
+	// Initialization
 	db, err := infra.InitDatabase(&config.Database)
+
 	if err != nil {
-		return
+		log.Fatalf("初始化数据库失败: %v", err)
 	}
 
 	rdb, err := infra.InitRedis(&config.Redis)
 	if err != nil {
-		return
+		log.Fatalf("初始化Redis失败: %v", err)
 	}
 
 	ctx := context.Background()
 	articleServ := article.NewArticleService(ctx, db, rdb)
 	articleHandler := article.NewHandler(articleServ)
 
-	// 在 goroutine 中启动服务
+	sitedataHandler := sitedata.NewHandler(db, rdb)
+
+	// Start the httpserver in goroutine
 	srv := httpserver.NewHttpserver(
 		&config.Httpserver,
 		articleHandler,
+		sitedataHandler,
 	)
 
 	go func() {
@@ -48,7 +55,7 @@ func main() {
 		}
 	}()
 
-	// 优雅退出处理
+	// Graceful exit
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
