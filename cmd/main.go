@@ -5,9 +5,12 @@ import (
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
+	"my_web/backend/internal/data"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/user"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -36,13 +39,16 @@ func main() {
 	}
 
 	ctx := context.Background()
-	articleServ := article.NewArticleService(ctx, db, rdb)
-	articleHandler := article.NewHandler(articleServ)
+	articleHandler := article.NewHandler(ctx, db, rdb)
+	sitedataHandler := data.NewHandler(db, rdb)
+	userHandler := user.NewHandler(db, rdb)
 
 	// 在 goroutine 中启动服务
 	srv := httpserver.NewHttpserver(
 		&config.Httpserver,
 		articleHandler,
+		sitedataHandler,
+		userHandler,
 	)
 
 	go func() {
@@ -55,12 +61,12 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("正在关闭服务...")
+	log.Println("close...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	log.Println("服务已退出")
+	log.Println("exit")
 }

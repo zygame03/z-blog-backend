@@ -6,6 +6,8 @@ import (
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
+	"my_web/backend/internal/data"
+	"my_web/backend/internal/user"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -27,6 +29,8 @@ func InitDatabase(conf *config.DatabaseConfig) (*gorm.DB, error) {
 	// 自动迁移
 	if err := db.AutoMigrate(
 		&article.Article{},
+		&user.Profile{},
+		&data.Sitedata{},
 	); err != nil {
 		return nil, fmt.Errorf("数据库自动迁移失败: %w", err)
 	}

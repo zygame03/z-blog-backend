@@ -6,6 +6,7 @@ import (
 )
 
 type ArticleConfig struct {
+	syncInterval time.Duration
 	cacheBaseTTL time.Duration
 	cacheUserTTl time.Duration
 }
@@ -18,8 +19,9 @@ func init() {
 
 func defaultArticleConfig() ArticleConfig {
 	return ArticleConfig{
-		cacheBaseTTL: 1 * time.Minute,
-		cacheUserTTl: 1 * time.Minute,
+		syncInterval: 10 * time.Second,
+		cacheBaseTTL: 10 * time.Second,
+		cacheUserTTl: 10 * time.Second,
 	}
 }
 

@@ -13,8 +13,8 @@ func (h *BaseHandler) Success(c *gin.Context, data any) {
 	ReturnSuccess(c, data)
 }
 
-func (h *BaseHandler) Fail(c *gin.Context, r Result, data any) {
-	ReturnResponse(c, r, data)
+func (h *BaseHandler) Fail(c *gin.Context, r Result) {
+	ReturnResponse(c, r, "")
 }
 
 func (h *BaseHandler) Response(c *gin.Context, r Result, data any) {
