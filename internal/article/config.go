@@ -19,16 +19,16 @@ func init() {
 
 func defaultArticleConfig() ArticleConfig {
 	return ArticleConfig{
-		syncInterval: 10 * time.Second,
-		cacheBaseTTL: 10 * time.Second,
-		cacheUserTTl: 10 * time.Second,
+		syncInterval: 24 * 60 * time.Second,
+		cacheBaseTTL: 5 * 60 * time.Second,
+		cacheUserTTl: 24 * 60 * time.Second,
 	}
 }
 
-func SetArticleConfig(cfg ArticleConfig) {
+func setConfig(cfg ArticleConfig) {
 	articleCfg.Store(cfg)
 }
 
-func GetArticleConfig() ArticleConfig {
+func getConfig() ArticleConfig {
 	return articleCfg.Load().(ArticleConfig)
 }

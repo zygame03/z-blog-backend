@@ -21,10 +21,10 @@ func defaultConfig() SitedataConfig {
 	}
 }
 
-func SetSitedataConfig(cfg SitedataConfig) {
+func setConfig(cfg SitedataConfig) {
 	config.Store(cfg)
 }
 
-func GetSitedataConfig() SitedataConfig {
+func getConfig() SitedataConfig {
 	return config.Load().(SitedataConfig)
 }

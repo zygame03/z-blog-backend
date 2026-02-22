@@ -34,10 +34,8 @@ func (s *service) getIntro(ctx context.Context) (string, error) {
 		logger.Info(
 			"cache miss for intro",
 		)
-
 		data, err = repoGetIntro(s.DB)
 		if err != nil {
-
 			return data, err
 		}
 
