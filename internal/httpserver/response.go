@@ -14,7 +14,7 @@ func (h *BaseHandler) Success(c *gin.Context, data any) {
 }
 
 func (h *BaseHandler) Fail(c *gin.Context, r Result) {
-	ReturnFail(c, r)
+	ReturnResponse(c, r, "")
 }
 
 func (h *BaseHandler) Response(c *gin.Context, r Result, data any) {

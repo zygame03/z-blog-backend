@@ -25,7 +25,6 @@ func NewHttpserver(conf *config.HttpserverConfig, routers ...Router) *http.Serve
 		AllowCredentials: conf.Cors.AllowCredentials,
 		MaxAge:           time.Duration(conf.Cors.MaxAge) * time.Hour,
 	}))
-	e.Use(gin.Recovery())
 	e.Use(logger.GinLogger())
 
 	for _, r := range routers {

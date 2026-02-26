@@ -5,10 +5,12 @@ import (
 	"log"
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
+	"my_web/backend/internal/data"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
-	sitedata "my_web/backend/internal/siteData"
+	"my_web/backend/internal/user"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,35 +20,34 @@ import (
 
 func main() {
 	logger.InitLogger()
-	// Load config
-	config, err := config.ReadConfig("config/", "config", "json")
+	// 读取配置
+	cfg, err := config.ReadConfig("config/", "config", "json")
 	if err != nil {
 		log.Fatalf("读取配置失败: %v", err)
 	}
 
-	// Initialization
-	db, err := infra.InitDatabase(&config.Database)
+	// 初始化应用依赖
+	db, err := infra.InitDatabase(&cfg.Database)
 
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
 
-	rdb, err := infra.InitRedis(&config.Redis)
+	rdb, err := infra.InitRedis(&cfg.Redis)
 	if err != nil {
 		log.Fatalf("初始化Redis失败: %v", err)
 	}
 
 	ctx := context.Background()
-	articleServ := article.NewArticleService(ctx, db, rdb)
-	articleHandler := article.NewHandler(articleServ)
-
-	sitedataHandler := sitedata.NewHandler(db, rdb)
-
+	articleHandler := article.NewHandler(ctx, db, rdb)
+	dataHandler := data.NewHandler(db, rdb)
+	userHandler := user.NewHandler(db, rdb)
 	// Start the httpserver in goroutine
 	srv := httpserver.NewHttpserver(
-		&config.Httpserver,
+		&cfg.Httpserver,
 		articleHandler,
-		sitedataHandler,
+		dataHandler,
+		userHandler,
 	)
 
 	go func() {
@@ -59,12 +60,12 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("正在关闭服务...")
+	log.Println("close...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server Shutdown:", err)
 	}
-	log.Println("服务已退出")
+	log.Println("exit")
 }

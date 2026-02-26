@@ -4,30 +4,33 @@ import (
 	"context"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/utils"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-type Service struct {
+type service struct {
 	DB  *gorm.DB
 	RDB *redis.Client
 
 	task utils.TaskRunner
 }
 
-func NewArticleService(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Service {
-	service := &Service{
+func newArticleService(
+	ctx context.Context,
+	db *gorm.DB,
+	rdb *redis.Client,
+) *service {
+	service := &service{
 		DB:  db,
 		RDB: rdb,
 	}
 
 	service.task = *utils.NewTaskRunner(
 		service,
-		utils.WithInterval(1*time.Hour),
-		utils.WithTimeout(1*time.Minute),
+		utils.WithInterval(getConfig().syncInterval),
+		utils.WithTimeout(getConfig().syncInterval),
 	)
 
 	service.task.Start(ctx)
@@ -35,7 +38,7 @@ func NewArticleService(ctx context.Context, db *gorm.DB, rdb *redis.Client) *Ser
 	return service
 }
 
-func (s *Service) Run(ctx context.Context) {
+func (s *service) Run(ctx context.Context) {
 	ids, err := repoGetAllArticleIDs(s.DB)
 	if err != nil {
 		logger.Error(
@@ -80,7 +83,10 @@ func (s *Service) Run(ctx context.Context) {
 	}
 }
 
-func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func (s *service) GetArticlesByPage(
+	ctx context.Context,
+	page, pageSize int,
+) ([]ArticleWithoutContent, int, error) {
 	articles, total, err := cacheGetArticlesByPage(ctx, s.RDB, page, pageSize)
 	if err == nil {
 		logger.Info(
@@ -117,7 +123,10 @@ func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]
 	return repoGetArticlesByPage(s.DB, page, pageSize)
 }
 
-func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
+func (s *service) GetArticlesByPopular(
+	ctx context.Context,
+	limit int,
+) ([]ArticleWithoutContent, error) {
 	articles, err := cacheGetArticlesByPopular(ctx, s.RDB, limit)
 	if err == nil {
 		logger.Info(
@@ -151,7 +160,11 @@ func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]Articl
 	return repoGetArticlesByPopular(s.DB, limit)
 }
 
-func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
+func (s *service) GetArticleByID(
+	ctx context.Context,
+	id int,
+	userID string,
+) (*Article, error) {
 	article, err := cacheGetArticleByID(ctx, s.RDB, id)
 	if err == nil {
 		logger.Info(
@@ -182,12 +195,11 @@ func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*A
 	if err != nil {
 		return nil, err
 	}
-
 	cacheAddViewUV(ctx, s.RDB, id, userID)
 	cacheSetArticleByID(ctx, s.RDB, id, article)
 	return article, nil
 }
 
-func (s *Service) GetArticlesByTag(limit int) ([]Article, error) {
+func (s *service) GetArticlesByTag(limit int) ([]Article, error) {
 	return nil, nil
 }
