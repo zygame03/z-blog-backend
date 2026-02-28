@@ -1,4 +1,4 @@
-package dyconfig
+package config
 
 import (
 	"my_web/backend/internal/article"

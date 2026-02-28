@@ -1,7 +1,7 @@
 package user
 
 import (
-	"my_web/backend/internal/httpserver"
+	"my_web/backend/internal/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +10,7 @@ import (
 )
 
 type Handler struct {
-	httpserver.BaseHandler
+	response.BaseHandler
 	service *service
 }
 
@@ -28,13 +28,13 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 func (h *Handler) getProfile(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrRequest)
+		h.Fail(ctx, response.ErrRequest)
 		return
 	}
 
 	data, err := h.service.getProfile(ctx, id)
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
 

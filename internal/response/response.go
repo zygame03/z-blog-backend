@@ -1,4 +1,4 @@
-package httpserver
+package response
 
 import (
 	"net/http"

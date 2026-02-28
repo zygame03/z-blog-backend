@@ -1,9 +1,9 @@
 package data
 
 import (
-	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/middleware"
+	"my_web/backend/internal/response"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -12,7 +12,7 @@ import (
 )
 
 type Handler struct {
-	httpserver.BaseHandler
+	response.BaseHandler
 	service *service
 }
 
@@ -31,7 +31,7 @@ func NewHandler(db *gorm.DB, rdb *redis.Client) *Handler {
 func (h *Handler) changeConfig(ctx *gin.Context) {
 	var cfg SitedataConfig
 	if ctx.ShouldBindBodyWithJSON(&cfg) != nil {
-		h.Fail(ctx, httpserver.ErrRequest)
+		h.Fail(ctx, response.ErrRequest)
 		return
 	}
 
@@ -45,7 +45,7 @@ func (h *Handler) changeConfig(ctx *gin.Context) {
 func (h *Handler) getIntro(ctx *gin.Context) {
 	data, err := h.service.getIntro(ctx)
 	if err != nil {
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
 	h.Success(ctx, data)

@@ -2,8 +2,8 @@ package article
 
 import (
 	"context"
-	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/logger"
+	"my_web/backend/internal/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 )
 
 type Handler struct {
-	httpserver.BaseHandler
+	response.BaseHandler
 	service *service
 }
 
@@ -40,7 +40,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest)
+		h.Fail(ctx, response.ErrRequest)
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			"parse query failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest)
+		h.Fail(ctx, response.ErrRequest)
 		return
 	}
 
@@ -62,11 +62,11 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 			zap.Int("pagesize", pageSize),
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
 
-	h.Success(ctx, httpserver.PageResult[ArticleWithoutContent]{
+	h.Success(ctx, response.PageResult[ArticleWithoutContent]{
 		Page:  page,
 		Size:  pageSize,
 		Total: total,
@@ -82,7 +82,7 @@ func (h *Handler) getHotArticles(ctx *gin.Context) {
 			"get article failed",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 			"request invalid id",
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrRequest)
+		h.Fail(ctx, response.ErrRequest)
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 			zap.Int("id", id),
 			zap.Error(err),
 		)
-		h.Fail(ctx, httpserver.ErrDBOp)
+		h.Fail(ctx, response.ErrDBOp)
 		return
 	}
 

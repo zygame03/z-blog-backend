@@ -6,8 +6,6 @@ import (
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
 	"my_web/backend/internal/data"
-	"my_web/backend/internal/dyconfig"
-	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/user"
@@ -34,7 +32,7 @@ func main() {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
 
-	rdb, err := infra.InitRedis(&cfg.Redis)
+	rdb, err := infra.InitCache(&cfg.Redis)
 	if err != nil {
 		log.Fatalf("初始化Redis失败: %v", err)
 	}
@@ -43,13 +41,13 @@ func main() {
 	articleHandler := article.NewHandler(
 		ctx, db, rdb,
 		func() *article.ArticleConfig {
-			return &dyconfig.GetConfig().Article
+			return &config.GetConfig().Article
 		},
 	)
 	dataHandler := data.NewHandler(db, rdb)
 	userHandler := user.NewHandler(db, rdb)
 	// Start the httpserver in goroutine
-	srv := httpserver.NewHttpserver(
+	srv := infra.NewHttpserver(
 		&cfg.Httpserver,
 		articleHandler,
 		dataHandler,
