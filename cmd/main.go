@@ -6,6 +6,7 @@ import (
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/config"
 	"my_web/backend/internal/data"
+	"my_web/backend/internal/dyconfig"
 	"my_web/backend/internal/httpserver"
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
@@ -39,7 +40,12 @@ func main() {
 	}
 
 	ctx := context.Background()
-	articleHandler := article.NewHandler(ctx, db, rdb)
+	articleHandler := article.NewHandler(
+		ctx, db, rdb,
+		func() *article.ArticleConfig {
+			return &dyconfig.GetConfig().Article
+		},
+	)
 	dataHandler := data.NewHandler(db, rdb)
 	userHandler := user.NewHandler(db, rdb)
 	// Start the httpserver in goroutine

@@ -17,14 +17,25 @@ var (
 	ErrCacheMiss = errors.New("cache miss")
 )
 
-func cacheGetArticlesByPage(
+type cache struct {
+	rdb *redis.Client
+	cfg func() *ArticleConfig
+}
+
+func NewCache(rdb *redis.Client, cfg func() *ArticleConfig) *cache {
+	return &cache{
+		rdb: rdb,
+		cfg: cfg,
+	}
+}
+
+func (c *cache) GetArticlesByPage(
 	ctx context.Context,
-	rdb *redis.Client,
 	page, pageSize int,
 ) ([]ArticleWithoutContent, int, error) {
 	// 获取文章列表
 	key := ArticleByPageKey(page, pageSize)
-	data, err := rdb.Get(ctx, key).Result()
+	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return nil, 0, ErrCacheMiss
 	}
@@ -50,7 +61,7 @@ func cacheGetArticlesByPage(
 
 	// 获取总数
 	totalKey := ArticleTotalKey()
-	totalData, err := rdb.Get(ctx, totalKey).Result()
+	totalData, err := c.rdb.Get(ctx, totalKey).Result()
 	if err == redis.Nil {
 		return articles, 0, ErrCacheMiss // 列表有但总数未命中
 	}
@@ -77,9 +88,8 @@ func cacheGetArticlesByPage(
 	return articles, total, nil
 }
 
-func cacheSetArticlesByPage(
+func (c *cache) SetArticlesByPage(
 	ctx context.Context,
-	rdb *redis.Client,
 	page, pageSize int,
 	articles []ArticleWithoutContent,
 	total int,
@@ -97,18 +107,18 @@ func cacheSetArticlesByPage(
 	}
 
 	// 使用 Pipeline 批量设置
-	pipe := rdb.Pipeline()
+	pipe := c.rdb.Pipeline()
 	pipe.Set(
 		ctx,
 		ArticleByPageKey(page, pageSize),
 		data,
-		getConfig().cacheBaseTTL,
+		c.cfg().cacheBaseTTL,
 	)
 	pipe.Set(
 		ctx,
 		ArticleTotalKey(),
 		strconv.Itoa(total),
-		getConfig().cacheBaseTTL,
+		c.cfg().cacheBaseTTL,
 	)
 
 	_, err = pipe.Exec(ctx)
@@ -125,13 +135,12 @@ func cacheSetArticlesByPage(
 	return nil
 }
 
-func cacheGetArticleByID(
+func (c *cache) GetArticleByID(
 	ctx context.Context,
-	rdb *redis.Client,
 	id int,
 ) (*Article, error) {
 	key := ArticleByIDKey(id)
-	data, err := rdb.Get(ctx, key).Result()
+	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		logger.Info(
 			"cache miss",
@@ -162,9 +171,8 @@ func cacheGetArticleByID(
 	return &article, nil
 }
 
-func cacheSetArticleByID(
+func (c *cache) SetArticleByID(
 	ctx context.Context,
-	rdb *redis.Client,
 	id int,
 	article *Article,
 ) error {
@@ -178,11 +186,11 @@ func cacheSetArticleByID(
 		return fmt.Errorf("marshal article by id failed: %w", err)
 	}
 
-	err = rdb.Set(
+	err = c.rdb.Set(
 		ctx,
 		ArticleByIDKey(id),
 		data,
-		getConfig().cacheBaseTTL,
+		c.cfg().cacheBaseTTL,
 	).Err()
 	if err != nil {
 		logger.Error(
@@ -196,14 +204,13 @@ func cacheSetArticleByID(
 	return nil
 }
 
-func cacheGetArticlesByPopular(
+func (c *cache) GetArticlesByPopular(
 	ctx context.Context,
-	rdb *redis.Client,
 	limit int,
 ) ([]ArticleWithoutContent, error) {
 	key := ArticleByPopularKey(limit)
 
-	data, err := rdb.Get(ctx, key).Result()
+	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
 		logger.Info(
 			"cache miss",
@@ -234,9 +241,8 @@ func cacheGetArticlesByPopular(
 	return articles, nil
 }
 
-func cacheSetArticlesByPopular(
+func (c *cache) SetArticlesByPopular(
 	ctx context.Context,
-	rdb *redis.Client,
 	limit int,
 	articles []ArticleWithoutContent,
 ) error {
@@ -250,11 +256,11 @@ func cacheSetArticlesByPopular(
 		return fmt.Errorf("marshal articles by popular failed: %w", err)
 	}
 
-	err = rdb.Set(
+	err = c.rdb.Set(
 		ctx,
 		ArticleByPopularKey(limit),
 		data,
-		getConfig().cacheBaseTTL,
+		c.cfg().cacheBaseTTL,
 	).Err()
 	if err != nil {
 		logger.Error(
@@ -268,27 +274,24 @@ func cacheSetArticlesByPopular(
 	return nil
 }
 
-func cacheAddViewUV(
+func (c *cache) AddViewUV(
 	ctx context.Context,
-	rdb *redis.Client,
 	id int,
 	userID string,
 ) error {
-	return rdb.PFAdd(ctx, ArticleViewKey(id), userID).Err()
+	return c.rdb.PFAdd(ctx, ArticleViewKey(id), userID).Err()
 }
 
-func cacheGetViewUV(
+func (c *cache) GetViewUV(
 	ctx context.Context,
-	rdb *redis.Client,
 	id int,
 ) (int64, error) {
-	return rdb.PFCount(ctx, ArticleViewKey(id)).Result()
+	return c.rdb.PFCount(ctx, ArticleViewKey(id)).Result()
 }
 
-func cacheDelViewUV(
+func (c *cache) DelViewUV(
 	ctx context.Context,
-	rdb *redis.Client,
 	id int,
 ) error {
-	return rdb.Del(ctx, ArticleViewKey(id)).Err()
+	return c.rdb.Del(ctx, ArticleViewKey(id)).Err()
 }
