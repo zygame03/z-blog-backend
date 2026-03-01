@@ -25,7 +25,7 @@ func (s *service) getIntro(ctx context.Context) (string, error) {
 	data, err := cacheGetIntro(ctx, s.RDB)
 	if err == nil {
 		logger.Info(
-			"get intro from cache failed",
+			"get intro from cache",
 		)
 		return data, err
 	}

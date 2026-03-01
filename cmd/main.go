@@ -20,9 +20,14 @@ import (
 func main() {
 	logger.InitLogger()
 	// 读取配置
-	cfg, err := config.ReadConfig("config/", "config", "json")
+	cfg, err := config.LoadStConfig("./config/", "config")
 	if err != nil {
 		log.Fatalf("读取配置失败: %v", err)
+	}
+
+	err = config.LoadDyConfig("./config/", "dyconfig")
+	if err != nil {
+		log.Fatalf("load dynamic config failed: %v", err)
 	}
 
 	// 初始化应用依赖

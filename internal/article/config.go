@@ -6,8 +6,8 @@ import (
 )
 
 type ArticleConfig struct {
-	syncInterval time.Duration
-	cacheBaseTTL time.Duration
+	SyncInterval time.Duration `mapstructure:"syncInterval"`
+	CacheBaseTTL time.Duration `mapstructure:"cacheBaseTTL"`
 }
 
 func ArticleSchema() *response.ModuleSchema {

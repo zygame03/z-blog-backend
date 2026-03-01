@@ -34,8 +34,8 @@ func newArticleService(
 
 	service.task = *utils.NewTaskRunner(
 		service,
-		utils.WithInterval(service.getCfg().syncInterval),
-		utils.WithTimeout(service.getConfig().cacheBaseTTL),
+		utils.WithInterval(service.getCfg().SyncInterval),
+		utils.WithTimeout(service.getConfig().CacheBaseTTL),
 	)
 
 	service.task.Start(ctx)

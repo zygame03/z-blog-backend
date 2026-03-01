@@ -112,13 +112,13 @@ func (c *cache) SetArticlesByPage(
 		ctx,
 		ArticleByPageKey(page, pageSize),
 		data,
-		c.cfg().cacheBaseTTL,
+		c.cfg().CacheBaseTTL,
 	)
 	pipe.Set(
 		ctx,
 		ArticleTotalKey(),
 		strconv.Itoa(total),
-		c.cfg().cacheBaseTTL,
+		c.cfg().CacheBaseTTL,
 	)
 
 	_, err = pipe.Exec(ctx)
@@ -190,7 +190,7 @@ func (c *cache) SetArticleByID(
 		ctx,
 		ArticleByIDKey(id),
 		data,
-		c.cfg().cacheBaseTTL,
+		c.cfg().CacheBaseTTL,
 	).Err()
 	if err != nil {
 		logger.Error(
@@ -260,7 +260,7 @@ func (c *cache) SetArticlesByPopular(
 		ctx,
 		ArticleByPopularKey(limit),
 		data,
-		c.cfg().cacheBaseTTL,
+		c.cfg().CacheBaseTTL,
 	).Err()
 	if err != nil {
 		logger.Error(

@@ -1,6 +1,6 @@
 {
     "article": {
-        "syncInterval": 24,
-        "baseCacheTTL": 5
+        "syncInterval": "10s",
+        "baseCacheTTL": "10s"
     }
 }

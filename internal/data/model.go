@@ -1,21 +1,19 @@
 package data
 
-import "time"
+import (
+	"my_web/backend/internal/global"
+)
 
 // k-v type model
 type Sitedata struct {
-	ID        int
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Key       string
-	Value     string
+	global.BaseModel
+	Key   string
+	Value string
 }
 
 // announcement
 type Announcement struct {
-	ID        int
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Text      string
-	IsDelete  bool
+	global.BaseModel
+	Text     string
+	IsDelete bool
 }

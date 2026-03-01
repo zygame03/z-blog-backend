@@ -6,27 +6,25 @@ import (
 )
 
 type Dyconfig struct {
-	Article article.ArticleConfig
+	Article article.ArticleConfig `mapstructure:"article"`
 }
 
 var config atomic.Value
-
-func init() {
-	cfg, err := LocalLoadConfig("")
-	if err != nil {
-		// 重试 + 默认配置保底
-	}
-	config.Store(cfg)
-}
 
 func GetConfig() *Dyconfig {
 	return config.Load().(*Dyconfig)
 }
 
-func LocalLoadConfig(path string) (*Dyconfig, error) {
-	return &Dyconfig{}, nil
+func LoadDyConfig(fpath, fname string) error {
+	var cfg Dyconfig
+	err := LoadConfig(fpath, fname, &cfg)
+	if err != nil {
+		return err
+	}
+	config.Store(&cfg)
+	return nil
 }
 
-func LocalSaveConfig() {
-
+func SaveDyConfig() {
+	// TODO
 }
