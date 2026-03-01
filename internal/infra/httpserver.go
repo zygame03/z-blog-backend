@@ -16,12 +16,12 @@ type HttpserverConfig struct {
 
 // CorsConfig CORS 配置
 type CorsConfig struct {
-	AllowedOrigins   []string `mapstructure:"allowedOrigins"`
-	AllowedMethods   []string `mapstructure:"allowedMethods"`
-	AllowedHeaders   []string `mapstructure:"allowedHeaders"`
-	ExposeHeaders    []string `mapstructure:"exposeHeaders"`
-	AllowCredentials bool     `mapstructure:"allowCredentials"`
-	MaxAge           int      `mapstructure:"maxAge"`
+	AllowedOrigins   []string `mapstructure:"allowed_origins"`
+	AllowedMethods   []string `mapstructure:"allowed_methods"`
+	AllowedHeaders   []string `mapstructure:"allowed_headers"`
+	ExposeHeaders    []string `mapstructure:"expose_headers"`
+	AllowCredentials bool     `mapstructure:"allow_credentials"`
+	MaxAge           int      `mapstructure:"max_age"`
 }
 
 type Router interface {

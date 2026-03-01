@@ -2,14 +2,14 @@
   "httpserver": {
     "port": ":8080",
     "cors": {
-      "allowedOrigins": [
+      "allowed_origins": [
         "http://localhost:5173",
         "http://localhost:80",
         "http://localhost",
         "http://132.232.238.184",
         "http://132.232.238.184:80"
       ],
-      "allowedMethods": [
+      "allowed_methods": [
         "PUT",
         "PATCH",
         "GET",
@@ -17,17 +17,17 @@
         "DELETE",
         "OPTIONS"
       ],
-      "allowedHeaders": [
+      "allowed_headers": [
         "Origin",
         "Content-Type",
         "Accept",
         "Authorization"
       ],
-      "exposeHeaders": [
+      "expose_headers": [
         "Content-Length"
       ],
-      "allowCredentials": 1,
-      "maxAge": 12
+      "allow_credentials": true,
+      "max_age": 12
     }
   },
 
@@ -45,5 +45,7 @@
     "dbname": "myBlog",
     "port": 5432,
     "sslmode": "disable"
-  }
+  },
+
+  "jwt_key": ""
 }
