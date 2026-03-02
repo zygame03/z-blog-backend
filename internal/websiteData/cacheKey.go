@@ -1,5 +1,9 @@
 package websiteData
 
 func getIntroKey() string {
-	return "siteData:intro"
+	return "websiteData:intro"
+}
+
+func getAnnouncementKey() string {
+	return "websiteData:intro"
 }

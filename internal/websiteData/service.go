@@ -9,7 +9,7 @@ import (
 )
 
 type service struct {
-	DB  *gorm.DB
+	db  *database
 	rdb *cache
 
 	getCfg func() *WebsiteDataConfig
@@ -17,10 +17,10 @@ type service struct {
 
 func newService(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *service {
 	s := service{
-		DB:     db,
 		getCfg: cfg,
 	}
 
+	s.db = NewDatabase(db)
 	s.rdb = NewCache(rdb, cfg)
 
 	return &s
@@ -39,7 +39,7 @@ func (s *service) getIntro(ctx context.Context) (string, error) {
 		logger.Info(
 			"cache miss for intro",
 		)
-		data, err = repoGetIntro(s.DB)
+		data, err = s.db.getIntro()
 		if err != nil {
 			return data, err
 		}
@@ -48,5 +48,31 @@ func (s *service) getIntro(ctx context.Context) (string, error) {
 		return data, err
 	}
 
-	return repoGetIntro(s.DB)
+	return s.db.getIntro()
+}
+
+func (s *service) getAnnouncement(ctx context.Context) ([]string, error) {
+	data, err := s.rdb.getAnnouncement(ctx)
+	if err == nil {
+		logger.Info(
+			"get intro from cache",
+		)
+
+		return data, err
+	}
+
+	if err == ErrCacheMiss {
+		logger.Info(
+			"cache miss for intro",
+		)
+		data, err = s.db.getAnnouncement()
+		if err != nil {
+			return data, err
+		}
+
+		s.rdb.setAnnouncement(ctx, data)
+		return data, err
+	}
+
+	return s.db.getAnnouncement()
 }
