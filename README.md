@@ -21,7 +21,7 @@
 * Go
 * Gin
 * GORM
-* MySQL
+* PostgreSQL
 * Redis
 * Viper
 
