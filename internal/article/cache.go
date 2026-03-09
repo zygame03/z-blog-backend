@@ -22,18 +22,14 @@ type cache struct {
 	cfg func() *ArticleConfig
 }
 
-func NewCache(rdb *redis.Client, cfg func() *ArticleConfig) *cache {
+func newCache(rdb *redis.Client, cfg func() *ArticleConfig) *cache {
 	return &cache{
 		rdb: rdb,
 		cfg: cfg,
 	}
 }
 
-func (c *cache) GetArticlesByPage(
-	ctx context.Context,
-	page, pageSize int,
-) ([]ArticleWithoutContent, int, error) {
-	// 获取文章列表
+func (c *cache) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	key := ArticleByPageKey(page, pageSize)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -59,11 +55,10 @@ func (c *cache) GetArticlesByPage(
 		return nil, 0, fmt.Errorf("unmarshal articles by page failed: %w", err)
 	}
 
-	// 获取总数
 	totalKey := ArticleTotalKey()
 	totalData, err := c.rdb.Get(ctx, totalKey).Result()
 	if err == redis.Nil {
-		return articles, 0, ErrCacheMiss // 列表有但总数未命中
+		return articles, 0, ErrCacheMiss
 	}
 	if err != nil {
 		logger.Error(
@@ -88,12 +83,7 @@ func (c *cache) GetArticlesByPage(
 	return articles, total, nil
 }
 
-func (c *cache) SetArticlesByPage(
-	ctx context.Context,
-	page, pageSize int,
-	articles []ArticleWithoutContent,
-	total int,
-) error {
+func (c *cache) SetArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleWithoutContent, total int) error {
 	// 序列化文章列表
 	data, err := json.Marshal(articles)
 	if err != nil {
@@ -135,10 +125,7 @@ func (c *cache) SetArticlesByPage(
 	return nil
 }
 
-func (c *cache) GetArticleByID(
-	ctx context.Context,
-	id int,
-) (*Article, error) {
+func (c *cache) GetArticleByID(ctx context.Context, id int) (*Article, error) {
 	key := ArticleByIDKey(id)
 	data, err := c.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
@@ -171,11 +158,7 @@ func (c *cache) GetArticleByID(
 	return &article, nil
 }
 
-func (c *cache) SetArticleByID(
-	ctx context.Context,
-	id int,
-	article *Article,
-) error {
+func (c *cache) SetArticleByID(ctx context.Context, id int, article *Article) error {
 	data, err := json.Marshal(article)
 	if err != nil {
 		logger.Error(
@@ -204,10 +187,7 @@ func (c *cache) SetArticleByID(
 	return nil
 }
 
-func (c *cache) GetArticlesByPopular(
-	ctx context.Context,
-	limit int,
-) ([]ArticleWithoutContent, error) {
+func (c *cache) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
 	key := ArticleByPopularKey(limit)
 
 	data, err := c.rdb.Get(ctx, key).Result()
@@ -241,11 +221,7 @@ func (c *cache) GetArticlesByPopular(
 	return articles, nil
 }
 
-func (c *cache) SetArticlesByPopular(
-	ctx context.Context,
-	limit int,
-	articles []ArticleWithoutContent,
-) error {
+func (c *cache) SetArticlesByPopular(ctx context.Context, limit int, articles []ArticleWithoutContent) error {
 	data, err := json.Marshal(articles)
 	if err != nil {
 		logger.Error(
@@ -274,24 +250,14 @@ func (c *cache) SetArticlesByPopular(
 	return nil
 }
 
-func (c *cache) AddViewUV(
-	ctx context.Context,
-	id int,
-	userID string,
-) error {
+func (c *cache) AddViewUV(ctx context.Context, id int, userID string) error {
 	return c.rdb.PFAdd(ctx, ArticleViewKey(id), userID).Err()
 }
 
-func (c *cache) GetViewUV(
-	ctx context.Context,
-	id int,
-) (int64, error) {
+func (c *cache) GetViewUV(ctx context.Context, id int) (int64, error) {
 	return c.rdb.PFCount(ctx, ArticleViewKey(id)).Result()
 }
 
-func (c *cache) DelViewUV(
-	ctx context.Context,
-	id int,
-) error {
+func (c *cache) DelViewUV(ctx context.Context, id int) error {
 	return c.rdb.Del(ctx, ArticleViewKey(id)).Err()
 }

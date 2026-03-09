@@ -8,7 +8,17 @@ import (
 	"gorm.io/gorm"
 )
 
-func repoGetAllArticleIDs(db *gorm.DB) ([]int, error) {
+type database struct {
+	*gorm.DB
+}
+
+func newDatabase(db *gorm.DB) *database {
+	return &database{
+		db,
+	}
+}
+
+func (db *database) getAllArticleIDs() ([]int, error) {
 	ids := []int{}
 
 	result := db.
@@ -27,12 +37,8 @@ func repoGetAllArticleIDs(db *gorm.DB) ([]int, error) {
 	return ids, nil
 }
 
-// repoGetArticlesByPage
-func repoGetArticlesByPage(
-	db *gorm.DB,
-	page, pageSize int,
-) ([]ArticleWithoutContent, int, error) {
-
+// getArticlesByPage
+func (db *database) getArticlesByPage(page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	var articles []ArticleWithoutContent
 	var total int64
 
@@ -66,8 +72,8 @@ func repoGetArticlesByPage(
 	return articles, int(total), nil
 }
 
-// repoGetArticleByID
-func repoGetArticleByID(db *gorm.DB, id int) (*Article, error) {
+// getArticleByID
+func (db *database) getArticleByID(id int) (*Article, error) {
 	var article Article
 
 	result := db.First(&article, id)
@@ -83,7 +89,7 @@ func repoGetArticleByID(db *gorm.DB, id int) (*Article, error) {
 	return &article, nil
 }
 
-func repoMGetArticleByID(db *gorm.DB, ids []int) ([]*Article, error) {
+func (db *database) mGetArticleByID(ids []int) ([]*Article, error) {
 	var articles []*Article
 
 	err := db.
@@ -102,8 +108,8 @@ func repoMGetArticleByID(db *gorm.DB, ids []int) ([]*Article, error) {
 	return articles, nil
 }
 
-// repoGetArticlesByPopular
-func repoGetArticlesByPopular(db *gorm.DB, limit int) ([]ArticleWithoutContent, error) {
+// getArticlesByPopular
+func (db *database) getArticlesByPopular(limit int) ([]ArticleWithoutContent, error) {
 	var articles []ArticleWithoutContent
 
 	result := db.
@@ -125,8 +131,8 @@ func repoGetArticlesByPopular(db *gorm.DB, limit int) ([]ArticleWithoutContent, 
 	return articles, nil
 }
 
-// repoIncrementViews 增加文章的 views
-func repoIncrementViews(db *gorm.DB, id int, increment int64) error {
+// incrementViews 增加文章的 views
+func (db *database) incrementViews(id int, increment int64) error {
 	result := db.
 		Model(&Article{}).
 		Where("id = ?", id).
@@ -144,8 +150,8 @@ func repoIncrementViews(db *gorm.DB, id int, increment int64) error {
 	return nil
 }
 
-// repoBatchUpdateViews 批量更新文章的 views
-func repoBatchUpdateViews(db *gorm.DB, viewsMap map[int]int64) error {
+// batchUpdateViews 批量更新文章的 views
+func (db *database) batchUpdateViews(viewsMap map[int]int64) error {
 	if len(viewsMap) == 0 {
 		return nil
 	}

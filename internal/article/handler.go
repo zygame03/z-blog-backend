@@ -1,25 +1,22 @@
 package article
 
 import (
-	"context"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 type Handler struct {
 	response.BaseHandler
-	service *service
+	service *Service
 }
 
-func NewHandler(ctx context.Context, db *gorm.DB, rdb *redis.Client, cfg func() *ArticleConfig) *Handler {
+func NewHandler(service *Service) *Handler {
 	return &Handler{
-		service: newArticleService(ctx, db, rdb, cfg),
+		service: service,
 	}
 }
 

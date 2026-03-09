@@ -44,13 +44,18 @@ func main() {
 		log.Fatalf("redis initialized failed: %v", err)
 	}
 
+	cron := infra.NewCron()
 	ctx := context.Background()
-	articleHandler := article.NewHandler(
-		ctx, db, rdb,
+
+	articleService := article.NewService(
+		db, rdb,
 		func() *article.ArticleConfig {
 			return &config.GetConfig().Article
 		},
 	)
+	articleService.RegisterCron(cron)
+	articleHandler := article.NewHandler(articleService)
+
 	dataHandler := websiteData.NewHandler(
 		db, rdb,
 		func() *websiteData.WebsiteDataConfig {
