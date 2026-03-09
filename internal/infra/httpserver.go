@@ -28,7 +28,7 @@ type Router interface {
 	RegisterRoutes(*gin.Engine)
 }
 
-func NewHttpserver(cfg *HttpserverConfig, routers ...Router) *http.Server {
+func NewHttpserver(cfg *HttpserverConfig, routers []Router, opts ...gin.HandlerFunc) *http.Server {
 	e := gin.New()
 
 	e.Use(cors.New(cors.Config{
@@ -40,6 +40,10 @@ func NewHttpserver(cfg *HttpserverConfig, routers ...Router) *http.Server {
 		MaxAge:           time.Duration(cfg.Cors.MaxAge) * time.Hour,
 	}))
 	e.Use(logger.GinLogger())
+
+	for _, opt := range opts {
+		e.Use(opt)
+	}
 
 	for _, r := range routers {
 		r.RegisterRoutes(e)
