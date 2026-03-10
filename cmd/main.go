@@ -66,12 +66,14 @@ func main() {
 
 	statsService := stats.NewService(db, rdb, config.GetStatsConfig)
 	statsService.RegisterCron(cron)
+	statsHandler := stats.NewHandler(statsService)
 
 	routers := []infra.Router{
 		articleHandler,
 		dataHandler,
 		userHandler,
 		homeHandler,
+		statsHandler,
 	}
 
 	// dependency injection
