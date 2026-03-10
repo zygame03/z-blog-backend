@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-type ArticleConfig struct {
+type Config struct {
 	SyncInterval time.Duration `mapstructure:"sync_interval"`
 	CacheBaseTTL time.Duration `mapstructure:"cache_base_ttl"`
 }
 
-func ArticleSchema() *response.ModuleSchema {
+func Schema() *response.ModuleSchema {
 	return &response.ModuleSchema{
 		Name: "article",
 		Fields: []*response.FieldSchema{
@@ -35,5 +35,5 @@ func ArticleSchema() *response.ModuleSchema {
 }
 
 func init() {
-	response.Register(ArticleSchema())
+	response.Register(Schema())
 }

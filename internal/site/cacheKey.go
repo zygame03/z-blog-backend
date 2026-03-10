@@ -1,4 +1,4 @@
-package websiteData
+package site
 
 func getIntroKey() string {
 	return "websiteData:intro"

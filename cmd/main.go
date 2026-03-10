@@ -9,9 +9,10 @@ import (
 	"my_web/backend/internal/infra"
 	"my_web/backend/internal/logger"
 	"my_web/backend/internal/middleware"
+	"my_web/backend/internal/site"
+
 	"my_web/backend/internal/stats"
 	"my_web/backend/internal/user"
-	"my_web/backend/internal/websiteData"
 
 	"net/http"
 	"os"
@@ -25,12 +26,12 @@ func main() {
 	// load config
 	cfg, err := config.LoadStConfig("./config/", "config")
 	if err != nil {
-		log.Fatalf("load static config failed: %v", err)
+		log.Fatalf("加载静态配置失败: %v", err)
 	}
 
 	err = config.LoadDyConfig("./config/", "dyconfig")
 	if err != nil {
-		log.Fatalf("load dynamic config failed: %v", err)
+		log.Fatalf("加载动态配置失败: %v", err)
 	}
 
 	// initialize
@@ -38,37 +39,33 @@ func main() {
 
 	db, err := infra.InitDatabase(&cfg.Database)
 	if err != nil {
-		log.Fatalf("database initialized failed: %v", err)
+		log.Fatalf("数据库初始化失败: %v", err)
 	}
+	logger.Info("数据库初始化成功")
 
 	rdb, err := infra.InitCache(&cfg.Redis)
 	if err != nil {
-		log.Fatalf("redis initialized failed: %v", err)
+		log.Fatalf("Redis 初始化失败: %v", err)
 	}
+	logger.Info("Redis 初始化成功")
 
 	cron := infra.NewCron()
-	ctx := context.Background()
 
-	articleService := article.NewService(
-		db, rdb,
-		func() *article.ArticleConfig {
-			return &config.GetConfig().Article
-		},
-	)
+	articleService := article.NewService(db, rdb, config.GetArticleConfig)
 	articleService.RegisterCron(cron)
 	articleHandler := article.NewHandler(articleService)
 
-	dataHandler := websiteData.NewHandler(
-		db, rdb,
-		func() *websiteData.WebsiteDataConfig {
-			return &config.GetConfig().SiteData
-		},
-	)
-	userHandler := user.NewHandler(
-		db, rdb,
-	)
+	dataService := site.NewService(db, rdb, config.GetSiteDataConfig)
+	dataHandler := site.NewHandler(dataService)
 
-	homeHandler := home.NewHandler()
+	userService := user.NewService(db, rdb, func() {})
+	userHandler := user.NewHandler(userService)
+
+	homeService := home.NewService(db, rdb, func() {})
+	homeHandler := home.NewHandler(homeService)
+
+	statsService := stats.NewService(db, rdb, config.GetStatsConfig)
+	statsService.RegisterCron(cron)
 
 	routers := []infra.Router{
 		articleHandler,
@@ -77,9 +74,7 @@ func main() {
 		homeHandler,
 	}
 
-	statsService := stats.NewService(db, rdb, cron, ctx)
-
-	// reject
+	// dependency injection
 	srv := infra.NewHttpserver(
 		&cfg.Httpserver,
 		routers,
@@ -99,12 +94,13 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("close...")
+	log.Println("正在关闭")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server Shutdown:", err)
+		log.Fatal("服务停止", err)
 	}
-	log.Println("exit")
+
+	log.Println("退出")
 }

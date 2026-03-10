@@ -11,10 +11,13 @@ import (
 
 type Handler struct {
 	response.BaseHandler
+	serv *Service
 }
 
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(serv *Service) *Handler {
+	return &Handler{
+		serv: serv,
+	}
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {

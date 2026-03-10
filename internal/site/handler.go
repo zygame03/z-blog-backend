@@ -1,16 +1,14 @@
-package websiteData
+package site
 
 import (
 	"my_web/backend/internal/response"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 type Handler struct {
 	response.BaseHandler
-	service *service
+	service *Service
 }
 
 func (h *Handler) RegisterRoutes(e *gin.Engine) {
@@ -19,9 +17,9 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	r.GET("/data/announcement", h.getAnnouncement)
 }
 
-func NewHandler(db *gorm.DB, rdb *redis.Client, cfg func() *WebsiteDataConfig) *Handler {
+func NewHandler(service *Service) *Handler {
 	return &Handler{
-		service: newService(db, rdb, cfg),
+		service: service,
 	}
 }
 

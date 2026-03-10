@@ -11,27 +11,38 @@ import (
 )
 
 type Service struct {
-	db  *database
-	rdb *cache
-
-	cron *cron.Cron
-	ctx  context.Context
+	db   *repo
+	rdb  *cache
+	conf func() *Config
 }
 
-func NewService(db *gorm.DB, rdb *redis.Client, cron *cron.Cron, ctx context.Context) *Service {
+func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
 	s := Service{
-		db:   newDatabase(db),
-		rdb:  NewCache(rdb),
-		cron: cron,
-		ctx:  ctx,
+		db:  newRepo(db),
+		rdb: newCache(rdb),
+
+		conf: conf,
 	}
 
-	cron.AddFunc("@every 10s", s.syncViewUV)
 	return &s
 }
 
+func (s *Service) RegisterCron(cron *cron.Cron) {
+	_, err := cron.AddFunc("@every 10s", s.syncViewUV)
+	if err != nil {
+		return
+	}
+	logger.Info(
+		"添加定时任务成功",
+		zap.Int("间隔", int(s.conf().SyncInterval)),
+		zap.String("任务描述", "网站浏览数同步"),
+	)
+}
+
 func (s *Service) syncViewUV() {
-	num, err := s.rdb.GetViewUV(s.ctx)
+	ctx := context.Background()
+	defer ctx.Done()
+	num, err := s.rdb.getViewUV(ctx)
 	if err != nil {
 		return
 	}
@@ -41,14 +52,14 @@ func (s *Service) syncViewUV() {
 		return
 	}
 
-	err = s.rdb.DelViewUV(s.ctx)
+	err = s.rdb.delViewUV(ctx)
 	if err != nil {
 		return
 	}
 }
 
-func (s *Service) RecordUV(ip string) {
-	err := s.rdb.AddViewUV(s.ctx, ip)
+func (s *Service) RecordUV(ctx context.Context, ip string) {
+	err := s.rdb.addViewUV(ctx, ip)
 	if err != nil {
 		return
 	}
@@ -58,13 +69,13 @@ func (s *Service) RecordUV(ip string) {
 	)
 }
 
-func (s *Service) GetViews() (int64, int64, error) {
+func (s *Service) GetViews(ctx context.Context) (int64, int64, error) {
 	num, err := s.db.getViews()
 	if err != nil {
 		return -1, -1, err
 	}
 
-	n2, err := s.rdb.GetViewUV(s.ctx)
+	n2, err := s.rdb.getViewUV(ctx)
 	if err != nil {
 		return num, -1, err
 	}

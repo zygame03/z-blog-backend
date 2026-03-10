@@ -11,19 +11,19 @@ import (
 )
 
 type Service struct {
-	db  *database
+	db  *repo
 	rdb *cache
 
-	getCfg func() *ArticleConfig
+	conf func() *Config
 }
 
-func NewService(db *gorm.DB, rdb *redis.Client, getCfg func() *ArticleConfig) *Service {
+func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
 	service := &Service{
-		getCfg: getCfg,
+		conf: conf,
 	}
 
-	service.db = newDatabase(db)
-	service.rdb = newCache(rdb, service.getCfg)
+	service.db = newRepo(db)
+	service.rdb = newCache(rdb, service.conf)
 
 	return service
 }
@@ -34,9 +34,9 @@ func (s *Service) RegisterCron(cron *cron.Cron) {
 		return
 	}
 	logger.Info(
-		"add func successfully",
-		zap.Int("interval", int(s.getCfg().SyncInterval)),
-		zap.String("func name", "syncArticleViews"),
+		"添加定时任务成功",
+		zap.Int("间隔", int(s.conf().SyncInterval)),
+		zap.String("任务描述", "文章浏览数同步"),
 	)
 }
 
@@ -52,7 +52,7 @@ func (s *Service) syncArticleViews() {
 	}
 
 	for _, id := range ids {
-		num, err := s.rdb.GetViewUV(ctx, id)
+		num, err := s.rdb.getViewUV(ctx, id)
 		if err != nil {
 			logger.Error(
 				"get view uv from cache failed",
@@ -65,7 +65,7 @@ func (s *Service) syncArticleViews() {
 			continue
 		}
 
-		err = s.rdb.DelViewUV(ctx, id)
+		err = s.rdb.delViewUV(ctx, id)
 		if err != nil {
 			logger.Error(
 				"delete view uv from cache failed",
@@ -87,7 +87,7 @@ func (s *Service) syncArticleViews() {
 }
 
 func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
-	articles, total, err := s.rdb.GetArticlesByPage(ctx, page, pageSize)
+	articles, total, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
 	if err == nil {
 		logger.Info(
 			"get articles by page from cache",
@@ -109,7 +109,7 @@ func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]
 			return nil, 0, err
 		}
 
-		s.rdb.SetArticlesByPage(ctx, page, pageSize, articles, total)
+		s.rdb.setArticlesByPage(ctx, page, pageSize, articles, total)
 		return articles, total, nil
 	}
 
@@ -124,7 +124,7 @@ func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]
 }
 
 func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
-	articles, err := s.rdb.GetArticlesByPopular(ctx, limit)
+	articles, err := s.rdb.getArticlesByPopular(ctx, limit)
 	if err == nil {
 		logger.Info(
 			"get articles by popular from cache",
@@ -144,7 +144,7 @@ func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]Articl
 			return nil, err
 		}
 
-		go s.rdb.SetArticlesByPopular(ctx, limit, articles)
+		go s.rdb.setArticlesByPopular(ctx, limit, articles)
 		return articles, nil
 	}
 
@@ -158,14 +158,14 @@ func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]Articl
 }
 
 func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
-	article, err := s.rdb.GetArticleByID(ctx, id)
+	article, err := s.rdb.getArticleByID(ctx, id)
 	if err == nil {
 		logger.Info(
 			"get article by id from cache",
 			zap.Int("id", id),
 			zap.String("user_id", userID),
 		)
-		s.rdb.AddViewUV(ctx, id, userID)
+		s.rdb.addViewUV(ctx, id, userID)
 		return article, nil
 	}
 
@@ -188,8 +188,8 @@ func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*A
 	if err != nil {
 		return nil, err
 	}
-	s.rdb.AddViewUV(ctx, id, userID)
-	s.rdb.SetArticleByID(ctx, id, article)
+	s.rdb.addViewUV(ctx, id, userID)
+	s.rdb.setArticleByID(ctx, id, article)
 	return article, nil
 }
 

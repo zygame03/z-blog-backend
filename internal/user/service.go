@@ -10,19 +10,21 @@ import (
 )
 
 type service struct {
-	db  *gorm.DB
-	rdb *redis.Client
+	db   *repo
+	rdb  *cache
+	conf func()
 }
 
-func newService(db *gorm.DB, rdb *redis.Client) *service {
+func NewService(db *gorm.DB, rdb *redis.Client, conf func()) *service {
 	return &service{
-		db:  db,
-		rdb: rdb,
+		db:   newRepo(db),
+		rdb:  newCache(rdb),
+		conf: conf,
 	}
 }
 
 func (s *service) getProfile(ctx context.Context, id int) (*Profile, error) {
-	data, err := cacheGetProfile(ctx, s.rdb, id)
+	data, err := s.rdb.getProfile(ctx, id)
 
 	if err == nil {
 		logger.Info(
@@ -32,7 +34,7 @@ func (s *service) getProfile(ctx context.Context, id int) (*Profile, error) {
 		return data, nil
 	}
 
-	data, err = repoGetProfile(s.db, id)
+	data, err = s.rdb.getProfile(ctx, id)
 	if err != nil {
 		logger.Error(
 			"repo get profile failed",
@@ -41,6 +43,6 @@ func (s *service) getProfile(ctx context.Context, id int) (*Profile, error) {
 		return nil, err
 	}
 
-	cacheSetProfile(ctx, s.rdb, id, data)
+	s.rdb.setProfile(ctx, id, data)
 	return data, nil
 }

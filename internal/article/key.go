@@ -4,27 +4,27 @@ import (
 	"fmt"
 )
 
-func ArticleTotalKey() string {
+func articleTotalKey() string {
 	return "Article:Total"
 }
 
-func ArticleByIDKey(id int) string {
+func articleByIDKey(id int) string {
 	return fmt.Sprintf("Article:ByID:%d", id)
 }
 
-func ArticleByPageKey(page, pageSize int) string {
+func articleByPageKey(page, pageSize int) string {
 	return fmt.Sprintf("Article:ByPage:%d:%d", page, pageSize)
 }
 
-func ArticleByPopularKey(limit int) string {
+func articleByPopularKey(limit int) string {
 	return fmt.Sprintf("Article:ByPopular:%d", limit)
 }
 
-func ArticleActiveViewIDsKey() string {
+func articleActiveViewIDsKey() string {
 	return "Article:View:ActiveIDs"
 }
 
-func ArticleViewKey(id int) string {
+func articleViewKey(id int) string {
 	if id == -1 {
 		return "Article:view:UV:*"
 	}
