@@ -5,6 +5,7 @@ import (
 	"my_web/backend/internal/article"
 	"my_web/backend/internal/site"
 	"my_web/backend/internal/stats"
+	"my_web/backend/internal/user"
 	"reflect"
 	"sync/atomic"
 )
@@ -13,12 +14,14 @@ type Dyconfig struct {
 	Article  article.Config `mapstructure:"article"`
 	SiteData site.Config    `mapstructure:"site_data"`
 	Stats    stats.Config   `mapstructure:"stats"`
+	User     user.Config    `mapstructure:"user"`
 }
 
 var config atomic.Value
 var configMap = map[string]func() any{
 	"article":   func() any { return &article.Config{} },
 	"site_data": func() any { return &site.Config{} },
+	"stats":     func() any { return &stats.Config{} },
 }
 
 func SetConfigWithModule(module string, conf any) error {
@@ -53,6 +56,10 @@ func GetSiteDataConfig() *site.Config {
 
 func GetStatsConfig() *stats.Config {
 	return &GetConfig().Stats
+}
+
+func GetUserConfig() *user.Config {
+	return &GetConfig().User
 }
 
 func NewConfigByModule(module string) any {

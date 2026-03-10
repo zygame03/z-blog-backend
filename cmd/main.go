@@ -19,6 +19,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -26,7 +28,15 @@ func main() {
 	// load config
 	cfg, err := config.LoadStConfig("./config/", "config")
 	if err != nil {
-		log.Fatalf("加载静态配置失败: %v", err)
+		logger.Fatal(
+			"加载静态配置失败",
+			zap.Error(err),
+		)
+	}
+	if cfg.JwtKey == "" {
+		logger.Fatal(
+			"JWT key 为空",
+		)
 	}
 
 	err = config.LoadDyConfig("./config/", "dyconfig")
@@ -58,7 +68,7 @@ func main() {
 	dataService := site.NewService(db, rdb, config.GetSiteDataConfig)
 	dataHandler := site.NewHandler(dataService)
 
-	userService := user.NewService(db, rdb, func() {})
+	userService := user.NewService(db, rdb, config.GetUserConfig)
 	userHandler := user.NewHandler(userService)
 
 	homeService := home.NewService(db, rdb, func() {})

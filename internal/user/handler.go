@@ -9,10 +9,10 @@ import (
 
 type Handler struct {
 	response.BaseHandler
-	serv *service
+	serv *Service
 }
 
-func NewHandler(serv *service) *Handler {
+func NewHandler(serv *Service) *Handler {
 	return &Handler{
 		serv: serv,
 	}

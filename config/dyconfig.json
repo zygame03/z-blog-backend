@@ -3,7 +3,7 @@
         "sync_interval": "10s",
         "cache_base_ttl": "60s"
     },
-    "website_data": {
+    "site_data": {
         "cache_base_ttl": "60s"
     },
     "stats": {

@@ -18,9 +18,8 @@ type Service struct {
 
 func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
 	s := Service{
-		db:  newRepo(db),
-		rdb: newCache(rdb),
-
+		db:   newRepo(db),
+		rdb:  newCache(rdb),
 		conf: conf,
 	}
 
@@ -28,7 +27,7 @@ func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
 }
 
 func (s *Service) RegisterCron(cron *cron.Cron) {
-	_, err := cron.AddFunc("@every 10s", s.syncViewUV)
+	_, err := cron.AddFunc("@every "+s.conf().SyncInterval.String(), s.syncViewUV)
 	if err != nil {
 		return
 	}
@@ -41,20 +40,27 @@ func (s *Service) RegisterCron(cron *cron.Cron) {
 
 func (s *Service) syncViewUV() {
 	ctx := context.Background()
-	defer ctx.Done()
 	num, err := s.rdb.getViewUV(ctx)
 	if err != nil {
+		logger.Error(
+			"get site view uv failed",
+		)
 		return
 	}
 
 	err = s.db.updateViews(num)
 	if err != nil {
+		logger.Error(
+			"update site view failed",
+		)
 		return
 	}
 
 	err = s.rdb.delViewUV(ctx)
 	if err != nil {
-		return
+		logger.Error(
+			"delete site view UV failed",
+		)
 	}
 }
 
