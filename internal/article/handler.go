@@ -11,10 +11,10 @@ import (
 
 type Handler struct {
 	response.BaseHandler
-	service *Service
+	service *ArticleService
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *ArticleService) *Handler {
 	return &Handler{
 		service: service,
 	}
@@ -24,12 +24,32 @@ func (h *Handler) RegisterRoutes(e *gin.Engine) {
 	r := e.Group("/api/article")
 	{
 		r.GET("", h.getArticles)
-		r.GET("/hotArticles", h.getHotArticles)
+		r.GET("/hot_articles", h.getHotArticles)
 		r.GET("/:id", h.getArticleDetail)
 	}
 }
 
+type ArticleListByPageResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		Page  int                     `json:"page"`
+		Size  int                     `json:"size"`
+		Total int                     `json:"total"`
+		Data  []ArticleWithoutContent `json:"data"`
+	} `json:"data"`
+}
+
 // 获取文章列表
+// @Summary 获取文章列表
+// @Description 分页获取文章
+// @Tags article
+// @Accept json
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页数量"
+// @Success 200 {object} ArticleListByPageResponse
+// @Router /article [get]
 func (h *Handler) getArticles(ctx *gin.Context) {
 	page, err := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	if err != nil {
@@ -41,7 +61,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 		return
 	}
 
-	pageSize, err := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
+	pageSize, err := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
 	if err != nil {
 		logger.Error(
 			"parse query failed",
@@ -51,7 +71,7 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 		return
 	}
 
-	articles, total, err := h.service.GetArticlesByPage(ctx.Request.Context(), page, pageSize)
+	articles, total, err := h.service.getArticlesByPage(ctx.Request.Context(), page, pageSize)
 	if err != nil {
 		logger.Error(
 			"get article failed",
@@ -71,9 +91,22 @@ func (h *Handler) getArticles(ctx *gin.Context) {
 	})
 }
 
-// get hot articles by views
+type ArticleListResponse struct {
+	Code    int                     `json:"code"`
+	Message string                  `json:"message"`
+	Data    []ArticleWithoutContent `json:"data"`
+}
+
+// 获取热门文章
+// @Summary 获取热门文章
+// @Description 获取热门文章
+// @Tags article
+// @Accept json
+// @Produce json
+// @Success 200 {object} ArticleListResponse
+// @Router /article/hot_articles [get]
 func (h *Handler) getHotArticles(ctx *gin.Context) {
-	data, err := h.service.GetArticlesByPopular(ctx, 10)
+	data, err := h.service.getArticlesByPopular(ctx, 10)
 	if err != nil {
 		logger.Error(
 			"get article failed",
@@ -86,7 +119,21 @@ func (h *Handler) getHotArticles(ctx *gin.Context) {
 	h.Success(ctx, data)
 }
 
-// get an article with content
+type ArticleDetailResponse struct {
+	Code    int     `json:"code"`
+	Message string  `json:"message"`
+	Data    Article `json:"data"`
+}
+
+// 获取文章详情（带正文）
+// @Summary 获取文章详情
+// @Description 根据id获取文章详情（带正文）
+// @Tags article
+// @Accept json
+// @Produce json
+// @Param id path int true "文章ID"
+// @Success 200 {object} ArticleDetailResponse
+// @Router /article/{id} [get]
 func (h *Handler) getArticleDetail(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
@@ -98,13 +145,13 @@ func (h *Handler) getArticleDetail(ctx *gin.Context) {
 		return
 	}
 
-	// get userid
-	userID := ctx.GetString("userID") // if middleware set userud
+	// 获取userID
+	userID := ctx.GetString("userID")
 	if userID == "" {
-		userID = ctx.ClientIP() // use ip as userid
+		userID = ctx.ClientIP()
 	}
 
-	data, err := h.service.GetArticleByID(ctx.Request.Context(), id, userID)
+	data, err := h.service.getArticleByID(ctx.Request.Context(), id, userID)
 	if err != nil {
 		logger.Error(
 			"get article failed",

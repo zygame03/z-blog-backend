@@ -1,6 +1,7 @@
 package article
 
 import (
+	"context"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -16,10 +17,11 @@ func newRepo(db *gorm.DB) *repo {
 	}
 }
 
-func (r *repo) getAllArticleIDs() ([]int, error) {
+func (r *repo) getAllArticleIDs(ctx context.Context) ([]int, error) {
 	ids := []int{}
 
 	result := r.db.
+		WithContext(ctx).
 		Model(&Article{}).
 		Select("id").
 		Where("is_delete = false AND status = ?", ArticlePublic).
@@ -32,11 +34,12 @@ func (r *repo) getAllArticleIDs() ([]int, error) {
 }
 
 // getArticlesByPage
-func (r *repo) getArticlesByPage(page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func (r *repo) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	var articles []ArticleWithoutContent
 	var total int64
 
 	result := r.db.
+		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Count(&total)
@@ -45,6 +48,7 @@ func (r *repo) getArticlesByPage(page, pageSize int) ([]ArticleWithoutContent, i
 	}
 
 	result = r.db.
+		WithContext(ctx).
 		Model(Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Offset((page - 1) * pageSize).
@@ -58,10 +62,10 @@ func (r *repo) getArticlesByPage(page, pageSize int) ([]ArticleWithoutContent, i
 }
 
 // getArticleByID
-func (r *repo) getArticleByID(id int) (*Article, error) {
+func (r *repo) getArticleByID(ctx context.Context, id int) (*Article, error) {
 	var article Article
 
-	result := r.db.First(&article, id)
+	result := r.db.WithContext(ctx).First(&article, id)
 	if result.Error != nil {
 		return &article, fmt.Errorf("db get article by id failed: %w", result.Error)
 	}
@@ -69,10 +73,11 @@ func (r *repo) getArticleByID(id int) (*Article, error) {
 	return &article, nil
 }
 
-func (r *repo) mGetArticleByID(ids []int) ([]*Article, error) {
+func (r *repo) mGetArticleByID(ctx context.Context, ids []int) ([]*Article, error) {
 	var articles []*Article
 
 	err := r.db.
+		WithContext(ctx).
 		Where("id IN ?", ids).
 		Find(&articles).
 		Error
@@ -84,10 +89,11 @@ func (r *repo) mGetArticleByID(ids []int) ([]*Article, error) {
 }
 
 // getArticlesByPopular
-func (r *repo) getArticlesByPopular(limit int) ([]ArticleWithoutContent, error) {
+func (r *repo) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
 	var articles []ArticleWithoutContent
 
 	result := r.db.
+		WithContext(ctx).
 		Model(&Article{}).
 		Where("is_delete = false AND status = ?", ArticlePublic).
 		Order("views DESC").
@@ -102,37 +108,14 @@ func (r *repo) getArticlesByPopular(limit int) ([]ArticleWithoutContent, error) 
 }
 
 // incrementViews 增加文章的 views
-func (r *repo) incrementViews(id int, increment int64) error {
+func (r *repo) incrementViews(ctx context.Context, id int, increment int64) error {
 	result := r.db.
+		WithContext(ctx).
 		Model(&Article{}).
 		Where("id = ?", id).
 		UpdateColumn("views", gorm.Expr("views + ?", increment))
 	if result.Error != nil {
 		return fmt.Errorf("db increment article views failed: %w", result.Error)
-	}
-
-	return nil
-}
-
-// batchUpdateViews 批量更新文章的 views
-func (r *repo) batchUpdateViews(viewsMap map[int]int64) error {
-	if len(viewsMap) == 0 {
-		return nil
-	}
-
-	err := r.db.Transaction(func(tx *gorm.DB) error {
-		for id, increment := range viewsMap {
-			if err := tx.Model(&Article{}).
-				Where("id = ?", id).
-				UpdateColumn("views", gorm.Expr("views + ?", increment)).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("db batch update article views failed: %w", err)
 	}
 
 	return nil

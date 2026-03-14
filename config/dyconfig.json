@@ -7,6 +7,7 @@
         "cache_base_ttl": "60s"
     },
     "stats": {
-        "sync_interval": "60s"
+        "sync_interval": "60s",
+        "cache_base_ttl": "24h"
     }
 }

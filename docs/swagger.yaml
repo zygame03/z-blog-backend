@@ -1,0 +1,168 @@
+basePath: /api
+definitions:
+  article.Article:
+    properties:
+      authorName:
+        description: 作者
+        type: string
+      content:
+        description: 正文
+        type: string
+      cover:
+        description: 封面
+        type: string
+      created_at:
+        type: string
+      desc:
+        description: 描述
+        type: string
+      id:
+        type: integer
+      is_delete:
+        type: boolean
+      status:
+        description: 状态
+        type: integer
+      tags:
+        description: 标签（逗号分隔形式）
+        type: string
+      title:
+        description: 标题
+        type: string
+      updated_at:
+        type: string
+      views:
+        description: 浏览数
+        type: integer
+    type: object
+  article.ArticleDetailResponse:
+    properties:
+      code:
+        type: integer
+      data:
+        $ref: '#/definitions/article.Article'
+      message:
+        type: string
+    type: object
+  article.ArticleListByPageResponse:
+    properties:
+      code:
+        type: integer
+      data:
+        properties:
+          data:
+            items:
+              $ref: '#/definitions/article.ArticleWithoutContent'
+            type: array
+          page:
+            type: integer
+          size:
+            type: integer
+          total:
+            type: integer
+        type: object
+      message:
+        type: string
+    type: object
+  article.ArticleListResponse:
+    properties:
+      code:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/article.ArticleWithoutContent'
+        type: array
+      message:
+        type: string
+    type: object
+  article.ArticleWithoutContent:
+    properties:
+      authorName:
+        description: 作者
+        type: string
+      cover:
+        description: 封面
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      tags:
+        description: 标签（逗号分隔）
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      views:
+        description: 浏览数
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Blog backend API
+  title: z-blog-backend API
+  version: "1.0"
+paths:
+  /article:
+    get:
+      consumes:
+      - application/json
+      description: 分页获取文章
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/article.ArticleListByPageResponse'
+      summary: 获取文章列表
+      tags:
+      - article
+  /article/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据id获取文章详情（带正文）
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/article.ArticleDetailResponse'
+      summary: 获取文章详情
+      tags:
+      - article
+  /article/hot_articles:
+    get:
+      consumes:
+      - application/json
+      description: 获取热门文章
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/article.ArticleListResponse'
+      summary: 获取热门文章
+      tags:
+      - article
+swagger: "2.0"

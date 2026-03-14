@@ -1,5 +1,9 @@
 package stats
 
+func viewUVKey() string {
+	return "stats:viewUV"
+}
+
 func viewKey() string {
-	return "stats:site:view"
+	return "stats:view"
 }

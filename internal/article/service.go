@@ -10,39 +10,60 @@ import (
 	"gorm.io/gorm"
 )
 
-type Service struct {
-	db  *repo
-	rdb *cache
-
-	conf func() *Config
+type ArticleRepo interface {
+	getAllArticleIDs(ctx context.Context) ([]int, error)
+	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error)
+	getArticleByID(ctx context.Context, id int) (*Article, error)
+	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error)
+	incrementViews(ctx context.Context, id int, inc int64) error
 }
 
-func NewService(db *gorm.DB, rdb *redis.Client, conf func() *Config) *Service {
-	service := &Service{
-		conf: conf,
+type ArticleCache interface {
+	getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error)
+	setArticlesByPage(ctx context.Context, page, pageSize int, articles []ArticleWithoutContent, total int) error
+	getArticleByID(ctx context.Context, id int) (*Article, error)
+	setArticleByID(ctx context.Context, id int, article *Article) error
+	getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error)
+	setArticlesByPopular(ctx context.Context, limit int, articles []ArticleWithoutContent) error
+	addViewUV(ctx context.Context, id int, userID string) error
+	getViewUV(ctx context.Context, id int) (int64, error)
+	delViewUV(ctx context.Context, id int) error
+}
+
+type ArticleService struct {
+	db  ArticleRepo
+	rdb ArticleCache
+
+	cfg func() *Config
+}
+
+func NewService(db *gorm.DB, rdb *redis.Client, cfg func() *Config) *ArticleService {
+	service := &ArticleService{
+		cfg: cfg,
 	}
 
 	service.db = newRepo(db)
-	service.rdb = newCache(rdb, service.conf)
+	service.rdb = newCache(rdb, cfg)
 
 	return service
 }
 
-func (s *Service) RegisterCron(cron *cron.Cron) {
-	_, err := cron.AddFunc("@every 24h", s.syncArticleViews)
+func (s *ArticleService) RegisterCron(cron *cron.Cron) {
+	_, err := cron.AddFunc("@every "+s.cfg().SyncInterval.String(), s.syncArticleViews)
 	if err != nil {
 		return
 	}
+
 	logger.Info(
-		"添加定时任务成功",
-		zap.Int("间隔", int(s.conf().SyncInterval)),
-		zap.String("任务描述", "文章浏览数同步"),
+		"add func successfully",
+		zap.Int("interval", int(s.cfg().SyncInterval)),
+		zap.String("func", "syncArticleViews"),
 	)
 }
 
-func (s *Service) syncArticleViews() {
+func (s *ArticleService) syncArticleViews() {
 	ctx := context.Background()
-	ids, err := s.db.getAllArticleIDs()
+	ids, err := s.db.getAllArticleIDs(ctx)
 	if err != nil {
 		logger.Error(
 			"load article ids for view sync failed",
@@ -75,7 +96,7 @@ func (s *Service) syncArticleViews() {
 			continue
 		}
 
-		if err := s.db.incrementViews(id, num); err != nil {
+		if err := s.db.incrementViews(ctx, id, num); err != nil {
 			logger.Error(
 				"increment article views failed",
 				zap.Int("id", id),
@@ -86,7 +107,7 @@ func (s *Service) syncArticleViews() {
 	}
 }
 
-func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
+func (s *ArticleService) getArticlesByPage(ctx context.Context, page, pageSize int) ([]ArticleWithoutContent, int, error) {
 	articles, total, err := s.rdb.getArticlesByPage(ctx, page, pageSize)
 	if err == nil {
 		logger.Info(
@@ -102,10 +123,17 @@ func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]
 			"cache miss for articles by page",
 			zap.Int("page", page),
 			zap.Int("page_size", pageSize),
+			zap.Error(err),
 		)
 
-		articles, total, err = s.db.getArticlesByPage(page, pageSize)
+		articles, total, err = s.db.getArticlesByPage(ctx, page, pageSize)
 		if err != nil {
+			logger.Error(
+				"repo get articles by page failed",
+				zap.Int("page", page),
+				zap.Int("page_size", pageSize),
+				zap.Error(err),
+			)
 			return nil, 0, err
 		}
 
@@ -120,10 +148,10 @@ func (s *Service) GetArticlesByPage(ctx context.Context, page, pageSize int) ([]
 		zap.Error(err),
 	)
 
-	return s.db.getArticlesByPage(page, pageSize)
+	return s.db.getArticlesByPage(ctx, page, pageSize)
 }
 
-func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
+func (s *ArticleService) getArticlesByPopular(ctx context.Context, limit int) ([]ArticleWithoutContent, error) {
 	articles, err := s.rdb.getArticlesByPopular(ctx, limit)
 	if err == nil {
 		logger.Info(
@@ -139,7 +167,7 @@ func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]Articl
 			zap.Int("limit", limit),
 		)
 
-		articles, err = s.db.getArticlesByPopular(limit)
+		articles, err = s.db.getArticlesByPopular(ctx, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -154,10 +182,10 @@ func (s *Service) GetArticlesByPopular(ctx context.Context, limit int) ([]Articl
 		zap.Error(err),
 	)
 
-	return s.db.getArticlesByPopular(limit)
+	return s.db.getArticlesByPopular(ctx, limit)
 }
 
-func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
+func (s *ArticleService) getArticleByID(ctx context.Context, id int, userID string) (*Article, error) {
 	article, err := s.rdb.getArticleByID(ctx, id)
 	if err == nil {
 		logger.Info(
@@ -184,7 +212,7 @@ func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*A
 		)
 	}
 
-	article, err = s.db.getArticleByID(id)
+	article, err = s.db.getArticleByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +221,6 @@ func (s *Service) GetArticleByID(ctx context.Context, id int, userID string) (*A
 	return article, nil
 }
 
-func (s *Service) GetArticlesByTag(limit int) ([]Article, error) {
+func (s *ArticleService) getArticlesByTag(limit int) ([]Article, error) {
 	return nil, nil
 }
